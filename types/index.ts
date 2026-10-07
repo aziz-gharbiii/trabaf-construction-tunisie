@@ -58,6 +58,21 @@ export interface Message {
   message: string;
   status: MessageStatus;
   created_at: string;
+  ip_address?: string;
+  location?: string;
+  is_real?: boolean;
+  user_agent?: string;
+}
+
+export interface VisitorLog {
+  id: string;
+  ip: string;
+  city?: string;
+  country?: string;
+  device?: string;
+  page: string;
+  timestamp: string;
+  user_agent?: string;
 }
 
 export interface KeyStat {

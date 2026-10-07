@@ -7,6 +7,8 @@ import { contactSchema, ContactFormData } from '@/lib/validations';
 import { DataService } from '@/lib/data-service';
 import { Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
+import { getVisitorIpInfo } from '@/lib/visitor-tracker';
+
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -26,12 +28,17 @@ export function ContactForm() {
     setErrorMsg(null);
 
     try {
-      // Save message in data service
-      DataService.addMessage(data);
+      const ipInfo = await getVisitorIpInfo();
+      DataService.addMessage({
+        ...data,
+        is_real: true,
+        ip_address: ipInfo.ip,
+        location: `${ipInfo.city || 'Tunis'}, ${ipInfo.country || 'Tunisie'}`
+      });
       setSubmitted(true);
       reset();
     } catch {
-      setErrorMsg("Une erreur est survenue lors de l'envoi de votre message. Veuillez réespayer.");
+      setErrorMsg("Une erreur est survenue lors de l'envoi de votre message. Veuillez réessayer.");
     } finally {
       setIsSubmitting(false);
     }

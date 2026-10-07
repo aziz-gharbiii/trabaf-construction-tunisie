@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { DataService } from '@/lib/data-service';
-import { Project, Service, Message } from '@/types';
+import { Project, Service, Message, VisitorLog } from '@/types';
+import { getVisitorStats, clearVisitorLogs } from '@/lib/visitor-tracker';
+import { formatDate } from '@/lib/utils';
 import {
   Building,
   Wrench,
@@ -14,27 +16,47 @@ import {
   Clock,
   ArrowRight,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Users,
+  Globe,
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [visitorStats, setVisitorStats] = useState<{
+    totalVisits: number;
+    uniqueIpCount: number;
+    uniqueIps: string[];
+    recentVisitors: VisitorLog[];
+  }>({ totalVisits: 0, uniqueIpCount: 0, uniqueIps: [], recentVisitors: [] });
+
+  const loadData = () => {
+    setProjects(DataService.getProjects());
+    setServices(DataService.getServices());
+    setMessages(DataService.getMessages());
+    setVisitorStats(getVisitorStats());
+  };
 
   useEffect(() => {
-    const loadData = () => {
-      setProjects(DataService.getProjects());
-      setServices(DataService.getServices());
-      setMessages(DataService.getMessages());
-    };
     loadData();
     window.addEventListener('trabaf_storage_updated', loadData);
     return () => window.removeEventListener('trabaf_storage_updated', loadData);
   }, []);
 
   const unreadMessages = messages.filter((m) => m.status === 'new');
+  const realMessages = messages.filter((m) => m.is_real === true);
   const featuredCount = projects.filter((p) => p.is_featured).length;
+
+  const handleClearVisitors = () => {
+    if (confirm("Voulez-vous réinitialiser le journal des visiteurs réels ?")) {
+      clearVisitorLogs();
+      loadData();
+    }
+  };
 
   return (
     <div className="space-y-8 text-white">
@@ -47,7 +69,7 @@ export default function AdminDashboardPage() {
           </div>
           <h1 className="text-3xl font-black text-white">Gestion TRABAF Construction</h1>
           <p className="text-slate-200 text-xs sm:text-sm max-w-xl">
-            Gérez facilement l&apos;ensemble du portfolio de projets, des services, des messages clients et des coordonnées de l&apos;entreprise.
+            Gérez votre portfolio, suivez les adresses IP des visiteurs en direct et traitez les demandes de devis réelles.
           </p>
         </div>
 
@@ -60,18 +82,42 @@ export default function AdminDashboardPage() {
             <span>Nouveau Projet</span>
           </Link>
           <Link
-            href="/admin/services"
+            href="/admin/messages"
             className="inline-flex items-center gap-2 bg-[#18437E] hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-xl border border-slate-700 text-xs transition-colors"
           >
-            <Wrench className="w-4 h-4 text-[#F5B800]" />
-            <span>Gérer Services</span>
+            <Mail className="w-4 h-4 text-[#F5B800]" />
+            <span>Voir Devis ({realMessages.length} réels)</span>
           </Link>
         </div>
       </div>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Metric 1 */}
+        {/* Metric 1: Visitors IP */}
+        <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-emerald-500/40 shadow-lg space-y-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-3 bg-emerald-500/10 rounded-bl-2xl">
+            <Globe className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="text-xs font-bold uppercase text-slate-300">Visiteurs uniques (IP)</div>
+          <div className="text-3xl font-black text-emerald-400">{visitorStats.uniqueIpCount} IP</div>
+          <div className="text-xs text-slate-300">
+            Total vues: <strong className="text-white">{visitorStats.totalVisits} pages</strong>
+          </div>
+        </div>
+
+        {/* Metric 2: Real Leads */}
+        <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-[#F5B800]/40 shadow-lg space-y-2">
+          <div className="flex justify-between items-center text-slate-400">
+            <span className="text-xs font-bold uppercase">Devis Réels Reçus</span>
+            <Sparkles className="w-5 h-5 text-[#F5B800]" />
+          </div>
+          <div className="text-3xl font-black text-[#F5B800]">{realMessages.length}</div>
+          <div className="text-xs text-slate-300">
+            <strong className="text-rose-400">{unreadMessages.length}</strong> non lus à traiter
+          </div>
+        </div>
+
+        {/* Metric 3: Projects */}
         <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-[#18437E] shadow-lg space-y-2">
           <div className="flex justify-between items-center text-slate-400">
             <span className="text-xs font-bold uppercase">Projets Portfolio</span>
@@ -79,40 +125,18 @@ export default function AdminDashboardPage() {
           </div>
           <div className="text-3xl font-black text-white">{projects.length}</div>
           <div className="text-xs text-slate-300">
-            dont <strong className="text-[#F5B800]">{featuredCount}</strong> mis en avant sur l&apos;accueil
+            dont <strong className="text-[#F5B800]">{featuredCount}</strong> mis en avant
           </div>
         </div>
 
-        {/* Metric 2 */}
+        {/* Metric 4: Services */}
         <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-[#18437E] shadow-lg space-y-2">
           <div className="flex justify-between items-center text-slate-400">
-            <span className="text-xs font-bold uppercase">Services BTP</span>
+            <span className="text-xs font-bold uppercase">Services Actifs</span>
             <Wrench className="w-5 h-5 text-[#F5B800]" />
           </div>
-          <div className="text-3xl font-black text-white">{services.length}</div>
-          <div className="text-xs text-slate-300">
-            <strong className="text-emerald-400">{services.filter((s) => s.is_active).length}</strong> services actifs sur le site
-          </div>
-        </div>
-
-        {/* Metric 3 */}
-        <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-[#18437E] shadow-lg space-y-2">
-          <div className="flex justify-between items-center text-slate-400">
-            <span className="text-xs font-bold uppercase">Messages Reçus</span>
-            <Mail className="w-5 h-5 text-[#F5B800]" />
-          </div>
-          <div className="text-3xl font-black text-white">{messages.length}</div>
-          <div className="text-xs text-slate-300">Demandes de devis enregistrées</div>
-        </div>
-
-        {/* Metric 4 */}
-        <div className="bg-[#0E2E5C] p-6 rounded-2xl border border-[#18437E] shadow-lg space-y-2">
-          <div className="flex justify-between items-center text-slate-400">
-            <span className="text-xs font-bold uppercase">Messages Non Lus</span>
-            <AlertCircle className="w-5 h-5 text-rose-400" />
-          </div>
-          <div className="text-3xl font-black text-rose-400">{unreadMessages.length}</div>
-          <div className="text-xs text-slate-300">À consulter et traiter</div>
+          <div className="text-3xl font-black text-white">{services.filter((s) => s.is_active).length}</div>
+          <div className="text-xs text-slate-300">Services BTP & Piscines</div>
         </div>
       </div>
 
@@ -222,6 +246,80 @@ export default function AdminDashboardPage() {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Visitor IP Live Log Section */}
+      <div className="bg-[#0E2E5C] p-6 rounded-3xl border-2 border-emerald-500/30 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#18437E]">
+          <div>
+            <h2 className="text-xl font-black text-white flex items-center gap-2">
+              <Globe className="w-5 h-5 text-emerald-400" />
+              Suivi en Direct des Visiteurs & Adresses IP
+            </h2>
+            <p className="text-xs text-slate-300 mt-1">
+              Liste en temps réel des visiteurs naviguant sur votre site web trabafconstruction.com.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="bg-emerald-950 text-emerald-300 border border-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>{visitorStats.uniqueIpCount} IP unique(s) enregistrée(s)</span>
+            </span>
+
+            <button
+              onClick={handleClearVisitors}
+              className="p-2 rounded-xl bg-[#081B38] hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-[#18437E] transition-colors"
+              title="Réinitialiser le journal des visiteurs"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* IP Visitor Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-200">
+            <thead className="bg-[#081B38] text-slate-400 uppercase font-bold border-b border-[#18437E]">
+              <tr>
+                <th className="p-3">Adresse IP</th>
+                <th className="p-3">Localisation</th>
+                <th className="p-3">Appareil</th>
+                <th className="p-3">Page Consultée</th>
+                <th className="p-3 text-right">Date & Heure</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#18437E]">
+              {visitorStats.recentVisitors.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-6 text-center text-slate-400">
+                    Aucun visiteur enregistré pour le moment. Visitez le site pour voir votre IP s&apos;afficher !
+                  </td>
+                </tr>
+              ) : (
+                visitorStats.recentVisitors.slice(0, 10).map((v) => (
+                  <tr key={v.id} className="hover:bg-[#18437E]/40 transition-colors">
+                    <td className="p-3 font-mono font-bold text-emerald-400">
+                      {v.ip}
+                    </td>
+                    <td className="p-3 text-white font-semibold">
+                      {v.city ? `${v.city}, ` : ''}{v.country || 'Tunisie'}
+                    </td>
+                    <td className="p-3 text-slate-300">
+                      {v.device || 'Navigateur Web'}
+                    </td>
+                    <td className="p-3 font-mono text-[#F5B800]">
+                      {v.page}
+                    </td>
+                    <td className="p-3 text-right text-slate-400">
+                      {formatDate(v.timestamp)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

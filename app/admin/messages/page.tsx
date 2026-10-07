@@ -54,12 +54,22 @@ export default function AdminMessagesPage() {
     loadMessages();
   };
 
+  const handleClearFake = () => {
+    if (confirm("Voulez-vous supprimer les messages de test / démonstration ?")) {
+      DataService.clearFakeMessages();
+      loadMessages();
+    }
+  };
+
   const filteredMessages = messages.filter((m) => {
     if (filterStatus === 'all') return true;
+    if (filterStatus === 'real') return m.is_real === true;
+    if (filterStatus === 'demo') return m.is_real !== true && m.id.startsWith('msg-1');
     return m.status === filterStatus;
   });
 
   const unreadCount = messages.filter((m) => m.status === 'new').length;
+  const realCount = messages.filter((m) => m.is_real === true).length;
 
   return (
     <div className="space-y-6 text-white">
@@ -68,19 +78,29 @@ export default function AdminMessagesPage() {
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
             <Mail className="w-6 h-6 text-[#F5B800]" />
-            Boîte de Réception Messages
+            Boîte de Réception Messages & Devis
           </h1>
           <p className="text-xs text-slate-300 mt-1">
-            Consultez et traitez les demandes de devis et de contact transmises par les visiteurs.
+            Consultez et traitez les demandes de devis réelles transmises par vos visiteurs en direct.
           </p>
         </div>
 
-        {unreadCount > 0 && (
-          <div className="bg-rose-600 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-2 shadow shrink-0">
-            <AlertCircle className="w-4 h-4" />
-            <span>{unreadCount} demande(s) non lue(s)</span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {unreadCount > 0 && (
+            <div className="bg-rose-600 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs flex items-center gap-2 shadow">
+              <AlertCircle className="w-4 h-4" />
+              <span>{unreadCount} non lu(s)</span>
+            </div>
+          )}
+
+          <button
+            onClick={handleClearFake}
+            className="bg-[#081B38] hover:bg-rose-950 hover:text-rose-200 text-slate-300 font-bold px-3.5 py-2 rounded-xl text-xs border border-[#18437E] transition-colors flex items-center gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span>Effacer messages démo</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -94,6 +114,16 @@ export default function AdminMessagesPage() {
           }`}
         >
           Tous ({messages.length})
+        </button>
+        <button
+          onClick={() => setFilterStatus('real')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            filterStatus === 'real'
+              ? 'bg-emerald-600 text-white shadow font-black'
+              : 'bg-[#0E2E5C] text-slate-300 hover:bg-[#18437E] border border-[#18437E]'
+          }`}
+        >
+          ⭐ Demandes Réelles ({realCount})
         </button>
         <button
           onClick={() => setFilterStatus('new')}
@@ -135,7 +165,7 @@ export default function AdminMessagesPage() {
               <tr>
                 <th className="p-4">Expéditeur</th>
                 <th className="p-4">Sujet / Message</th>
-                <th className="p-4">Téléphone</th>
+                <th className="p-4">Téléphone & Origine IP</th>
                 <th className="p-4">Date</th>
                 <th className="p-4 text-center">Statut</th>
                 <th className="p-4 text-right">Actions</th>
@@ -157,14 +187,28 @@ export default function AdminMessagesPage() {
                     }`}
                   >
                     <td className="p-4">
-                      <div className="font-bold text-white text-sm">{m.full_name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{m.full_name}</span>
+                        {m.is_real && (
+                          <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow">
+                            RÉEL ⭐
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-slate-400">{m.email}</div>
                     </td>
                     <td className="p-4">
                       <div className="font-bold text-[#F5B800]">{m.subject}</div>
                       <div className="text-slate-300 text-[11px] line-clamp-1">{m.message}</div>
                     </td>
-                    <td className="p-4 font-mono text-slate-300">{m.phone || 'Non renseigné'}</td>
+                    <td className="p-4">
+                      <div className="font-mono text-slate-200">{m.phone || 'Non renseigné'}</div>
+                      {m.ip_address && (
+                        <div className="text-[10px] text-emerald-400 font-mono mt-0.5">
+                          IP: {m.ip_address} {m.location ? `(${m.location})` : ''}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4 text-slate-400">{formatDate(m.created_at)}</td>
                     <td className="p-4 text-center">
                       <span

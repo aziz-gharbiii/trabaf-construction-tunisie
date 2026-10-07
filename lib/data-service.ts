@@ -166,11 +166,17 @@ export const DataService = {
       ...msg,
       id: 'msg-' + Date.now(),
       status: 'new',
+      is_real: msg.is_real ?? true,
       created_at: new Date().toISOString()
     };
     messages.unshift(newMessage);
     setStorageItem(STORAGE_KEYS.MESSAGES, messages);
     return newMessage;
+  },
+
+  clearFakeMessages(): void {
+    const messages = this.getMessages().filter(m => m.is_real === true || !m.id.startsWith('msg-1'));
+    setStorageItem(STORAGE_KEYS.MESSAGES, messages);
   },
 
   updateMessageStatus(id: string, status: Message['status']): void {
