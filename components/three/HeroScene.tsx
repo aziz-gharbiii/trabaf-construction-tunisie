@@ -2,27 +2,23 @@
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Environment, Sky } from '@react-three/drei';
-import { EffectComposer, N8AO, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
+import { Environment, Sky } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
 import * as THREE from 'three';
+import { split } from './splitStore';
 
 /* ======================================================================
-   Scène 3D réaliste du hero — chantier TRABAF au coucher du soleil.
-   Résidence R+6 : 5 niveaux finis (façade vitrée, balcons, brise-soleil
-   bois), 2 niveaux en gros œuvre (échafaudage, filet, fers en attente),
-   grue à tour en treillis qui lève des charges, piscine + palmiers,
-   palissade de chantier aux couleurs TRABAF.
-   Tout est généré en code (aucun modèle à télécharger).
+   Hero 3D « Du plan à la réalité » — deux immeubles tunisiens (R+4 et R+3)
+   au coucher du soleil : façades blanches, persiennes et portes bleues,
+   porte d'entrée en arc, balcons en fer forgé, citerne, chauffe-eau solaire
+   et parabole sur le toit, piscine et palmiers.
+   Une ligne de scan sépare la version « plan d'architecte 3D » (traits)
+   de la version « réalisée » (matériaux réels). Tout est généré en code.
    ====================================================================== */
 
 const YELLOW = '#F5B800';
-const NAVY = '#0E2E5C';
-const FLOORS = 7;
-const FINISHED = 5;
-const H = 0.62; // hauteur d'étage
-const W = 4.4; // largeur façade (x)
-const D = 2.8; // profondeur (z)
-const BAYS = 4;
+const BLUE = '#1f5fa6';
+const H = 0.62;
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const ease = (t: number) => 1 - Math.pow(1 - clamp(t), 3);
@@ -31,7 +27,7 @@ const smooth = (t: number) => {
   return x * x * (3 - 2 * x);
 };
 
-/* ---------------- Textures procédurales (canvas) ---------------- */
+/* ---------------- Textures procédurales ---------------- */
 function noiseTexture(base: string, spread: number, repeat: number, size = 256): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -46,452 +42,324 @@ function noiseTexture(base: string, spread: number, repeat: number, size = 256):
     img.data[i + 2] += n;
   }
   ctx.putImageData(img, 0, 0);
-  for (let i = 0; i < 40; i++) {
-    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.05})`;
-    ctx.beginPath();
-    ctx.arc(Math.random() * size, Math.random() * size, Math.random() * 30, 0, Math.PI * 2);
-    ctx.fill();
-  }
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(repeat, repeat);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
   return t;
 }
 
-function bannerTexture(): THREE.CanvasTexture {
+/** Persienne bleue à lames horizontales */
+function shutterTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 1024;
-  c.height = 160;
+  c.width = 64;
+  c.height = 128;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = NAVY;
-  ctx.fillRect(0, 0, c.width, c.height);
-  for (let x = -40; x < c.width + 40; x += 40) {
-    ctx.fillStyle = YELLOW;
-    ctx.beginPath();
-    ctx.moveTo(x, 140);
-    ctx.lineTo(x + 20, 140);
-    ctx.lineTo(x + 40, 160);
-    ctx.lineTo(x + 20, 160);
-    ctx.fill();
+  ctx.fillStyle = BLUE;
+  ctx.fillRect(0, 0, 64, 128);
+  for (let y = 4; y < 128; y += 9) {
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(4, y + 5, 56, 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(4, y, 56, 1);
   }
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '900 64px Arial, sans-serif';
-  ctx.fillText('TRABAF', 40, 62);
-  ctx.fillStyle = YELLOW;
-  ctx.font = '700 30px Arial, sans-serif';
-  ctx.fillText('CONSTRUCTION', 300, 50);
-  ctx.fillStyle = '#cbd5e1';
-  ctx.font = '600 24px Arial, sans-serif';
-  ctx.fillText('Bâtir vos rêves  •  +216 50 044 010', 300, 90);
+  ctx.strokeStyle = '#174a85';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(2, 2, 60, 124);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
   return t;
 }
 
-/* ---------------- Matériaux partagés ---------------- */
+/** Sol « plan d'architecte » : fond bleu + quadrillage */
+function blueprintGroundTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#0a2a57';
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.strokeStyle = 'rgba(120,170,240,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 256; i += 32) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, 256);
+    ctx.moveTo(0, i);
+    ctx.lineTo(256, i);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(170,210,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(30, 30);
+  return t;
+}
+
+/* ---------------- Matériaux ---------------- */
 function useMaterials() {
   return useMemo(() => {
-    const concrete = new THREE.MeshStandardMaterial({ map: noiseTexture('#a7a399', 26, 2), roughness: 0.92 });
-    const render = new THREE.MeshStandardMaterial({ color: '#efede8', roughness: 0.85 });
-    const glass = new THREE.MeshPhysicalMaterial({
-      color: '#6f8ea8',
-      metalness: 0.15,
-      roughness: 0.04,
-      clearcoat: 1,
-      clearcoatRoughness: 0.05,
-      envMapIntensity: 1.8
-    });
-    const frame = new THREE.MeshStandardMaterial({ color: '#2a2e35', metalness: 0.7, roughness: 0.35 });
-    const wood = new THREE.MeshStandardMaterial({ color: '#8b6440', roughness: 0.7 });
-    const rail = new THREE.MeshPhysicalMaterial({ color: '#cfe3f0', transparent: true, opacity: 0.28, roughness: 0.05 });
-    const warm = new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb35c', emissiveIntensity: 2.2, toneMapped: false });
-    const rebar = new THREE.MeshStandardMaterial({ color: '#6b4430', metalness: 0.6, roughness: 0.6 });
-    const scaffold = new THREE.MeshStandardMaterial({ color: '#b8bec6', metalness: 0.8, roughness: 0.35 });
-    const plank = new THREE.MeshStandardMaterial({ color: '#a37a4c', roughness: 0.85 });
-    const net = new THREE.MeshStandardMaterial({ color: '#2f7d3a', transparent: true, opacity: 0.42, side: THREE.DoubleSide, roughness: 1 });
-    const yellow = new THREE.MeshStandardMaterial({ color: YELLOW, metalness: 0.35, roughness: 0.45 });
-    const steel = new THREE.MeshStandardMaterial({ color: '#3b4553', metalness: 0.7, roughness: 0.45 });
-    return { concrete, render, glass, frame, wood, rail, warm, rebar, scaffold, plank, net, yellow, steel };
+    const shutterMap = shutterTexture();
+    return {
+      render: new THREE.MeshStandardMaterial({ map: noiseTexture('#f4f2ec', 10, 3), roughness: 0.9 }),
+      cream: new THREE.MeshStandardMaterial({ color: '#e7dcc6', roughness: 0.85 }),
+      slab: new THREE.MeshStandardMaterial({ map: noiseTexture('#d9d4ca', 14, 2), roughness: 0.9 }),
+      glass: new THREE.MeshPhysicalMaterial({ color: '#4d6a83', metalness: 0.2, roughness: 0.05, clearcoat: 1, envMapIntensity: 1.6 }),
+      warm: new THREE.MeshStandardMaterial({ color: '#ffd9a0', emissive: '#ffb35c', emissiveIntensity: 1.8, toneMapped: false }),
+      shutter: new THREE.MeshStandardMaterial({ map: shutterMap, roughness: 0.6 }),
+      door: new THREE.MeshStandardMaterial({ color: '#1a4f8c', roughness: 0.5, metalness: 0.1 }),
+      iron: new THREE.MeshStandardMaterial({ color: '#1c1d21', metalness: 0.6, roughness: 0.4 }),
+      tank: new THREE.MeshStandardMaterial({ color: '#e9e9e6', roughness: 0.5, metalness: 0.2 }),
+      panel: new THREE.MeshStandardMaterial({ color: '#1b2c4a', metalness: 0.6, roughness: 0.2 }),
+      deck: new THREE.MeshStandardMaterial({ color: '#c9b089', roughness: 0.8 }),
+      tile: new THREE.MeshStandardMaterial({ map: noiseTexture('#b9b2a5', 18, 8), roughness: 0.9 })
+    };
   }, []);
 }
 type Mats = ReturnType<typeof useMaterials>;
 
-/* ---------------- Barres (treillis) en InstancedMesh ---------------- */
-type Bar = [THREE.Vector3, THREE.Vector3, number];
-const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+/* ---------------- Porte d'entrée en arc ---------------- */
+function archShape(w: number, h: number) {
+  const s = new THREE.Shape();
+  const r = w / 2;
+  s.moveTo(-r, 0);
+  s.lineTo(-r, h - r);
+  s.absarc(0, h - r, r, Math.PI, 0, true);
+  s.lineTo(r, 0);
+  s.lineTo(-r, 0);
+  return s;
+}
 
-function Bars({ bars, material }: { bars: Bar[]; material: THREE.Material }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const o = new THREE.Object3D();
-    const up = new THREE.Vector3(0, 1, 0);
-    bars.forEach(([a, b, t], i) => {
-      const dir = new THREE.Vector3().subVectors(b, a);
-      const len = dir.length();
-      o.position.copy(a).addScaledVector(dir, 0.5);
-      o.quaternion.setFromUnitVectors(up, dir.normalize());
-      o.scale.set(t, len, t);
-      o.updateMatrix();
-      mesh.setMatrixAt(i, o.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-  }, [bars]);
+function ArchDoor({ m, x, z }: { m: Mats; x: number; z: number }) {
+  const outer = useMemo(() => new THREE.ExtrudeGeometry(archShape(0.66, 0.56), { depth: 0.05, bevelEnabled: false, curveSegments: 18 }), []);
+  const inner = useMemo(() => new THREE.ExtrudeGeometry(archShape(0.5, 0.48), { depth: 0.05, bevelEnabled: false, curveSegments: 18 }), []);
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, bars.length]} material={material} castShadow>
-      <boxGeometry args={[1, 1, 1]} />
-    </instancedMesh>
+    <group position={[x, 0.02, z]}>
+      <mesh geometry={outer} material={m.cream} castShadow />
+      <mesh geometry={inner} material={m.door} position={[0, 0, 0.012]} />
+      {/* clous décoratifs façon porte tunisienne */}
+      {[-0.12, 0, 0.12].map((dx) =>
+        [0.12, 0.24, 0.36].map((dy) => (
+          <mesh key={`${dx}${dy}`} position={[dx, dy, 0.066]} material={m.iron}>
+            <sphereGeometry args={[0.012, 6, 6]} />
+          </mesh>
+        ))
+      )}
+    </group>
   );
 }
 
-/* ---------------- Étage fini ---------------- */
-function FinishedFloor({ i, m, lit }: { i: number; m: Mats; lit: boolean[] }) {
-  const bay = W / BAYS;
-  const balcony = i > 0;
+/* ---------------- Fenêtre + persiennes ouvertes ---------------- */
+function TunisianWindow({ m, x, y, z, lit = false, w = 0.36, h = 0.36, rotY = 0 }: { m: Mats; x: number; y: number; z: number; lit?: boolean; w?: number; h?: number; rotY?: number }) {
   return (
-    <group>
-      <mesh position={[0, 0.04, 0]} material={m.concrete} castShadow receiveShadow>
-        <boxGeometry args={[W + 0.1, 0.08, D + 0.1]} />
+    <group position={[x, y, z]} rotation={[0, rotY, 0]}>
+      {/* encadrement */}
+      <mesh position={[0, 0, 0.015]} material={m.cream} castShadow>
+        <boxGeometry args={[w + 0.08, h + 0.08, 0.03]} />
       </mesh>
-      <mesh position={[-W / 2, H / 2, 0]} material={m.render} castShadow receiveShadow>
-        <boxGeometry args={[0.12, H, D]} />
+      <mesh position={[0, 0, 0.032]} material={lit ? m.warm : m.glass}>
+        <boxGeometry args={[w, h, 0.01]} />
       </mesh>
-      <mesh position={[W / 2, H / 2, 0]} material={m.render} castShadow receiveShadow>
-        <boxGeometry args={[0.12, H, D]} />
-      </mesh>
-      <mesh position={[0, H / 2, -D / 2]} material={m.render} castShadow receiveShadow>
-        <boxGeometry args={[W, H, 0.12]} />
-      </mesh>
-      {[-0.6, 0.6].map((z) => (
-        <mesh key={z} position={[W / 2 + 0.065, H / 2 + 0.02, z]} material={m.glass}>
-          <boxGeometry args={[0.02, H * 0.55, 0.5]} />
+      {/* volets ouverts de chaque côté */}
+      {[-1, 1].map((sgn) => (
+        <mesh key={sgn} position={[sgn * (w / 2 + 0.06 + w / 4), 0, 0.04]} rotation={[0, sgn * -0.35, 0]} material={m.shutter} castShadow>
+          <boxGeometry args={[w / 2, h + 0.02, 0.015]} />
         </mesh>
       ))}
-      {Array.from({ length: BAYS }).map((_, b) => {
-        const x = -W / 2 + bay * (b + 0.5);
+      {/* appui de fenêtre */}
+      <mesh position={[0, -h / 2 - 0.05, 0.04]} material={m.cream}>
+        <boxGeometry args={[w + 0.14, 0.03, 0.08]} />
+      </mesh>
+    </group>
+  );
+}
+
+/* ---------------- Balcon fer forgé ---------------- */
+function Balcony({ m, x, y, z, w }: { m: Mats; x: number; y: number; z: number; w: number }) {
+  const bars = Math.floor(w / 0.055);
+  return (
+    <group position={[x, y, z]}>
+      <mesh position={[0, 0, 0.17]} material={m.slab} castShadow receiveShadow>
+        <boxGeometry args={[w, 0.06, 0.36]} />
+      </mesh>
+      <mesh position={[0, 0.27, 0.34]} material={m.iron}>
+        <boxGeometry args={[w, 0.02, 0.02]} />
+      </mesh>
+      {Array.from({ length: bars + 1 }).map((_, i) => (
+        <mesh key={i} position={[-w / 2 + (i * w) / bars, 0.14, 0.34]} material={m.iron}>
+          <boxGeometry args={[0.008, 0.26, 0.008]} />
+        </mesh>
+      ))}
+      {/* volute décorative */}
+      <mesh position={[0, 0.14, 0.345]} rotation={[0, 0, 0]} material={m.iron}>
+        <torusGeometry args={[0.07, 0.006, 6, 20]} />
+      </mesh>
+    </group>
+  );
+}
+
+/* ---------------- Équipements de toit ---------------- */
+function RoofKit({ m, W, D }: { m: Mats; W: number; D: number }) {
+  return (
+    <group>
+      {/* acrotère */}
+      {[
+        [0, D / 2, W, 0.06],
+        [0, -D / 2, W, 0.06]
+      ].map(([x, z, w, d], i) => (
+        <mesh key={`p${i}`} position={[x, 0.11, z]} material={m.render} castShadow>
+          <boxGeometry args={[w, 0.2, d]} />
+        </mesh>
+      ))}
+      {[W / 2, -W / 2].map((x, i) => (
+        <mesh key={`s${i}`} position={[x, 0.11, 0]} material={m.render} castShadow>
+          <boxGeometry args={[0.06, 0.2, D]} />
+        </mesh>
+      ))}
+      {/* cage d'escalier + porte bleue */}
+      <group position={[-W / 2 + 0.6, 0, -D / 2 + 0.5]}>
+        <mesh position={[0, 0.27, 0]} material={m.render} castShadow>
+          <boxGeometry args={[0.9, 0.54, 0.7]} />
+        </mesh>
+        <mesh position={[0.2, 0.2, 0.355]} material={m.door}>
+          <boxGeometry args={[0.24, 0.38, 0.01]} />
+        </mesh>
+      </group>
+      {/* citerne d'eau (bâche) sur support */}
+      <group position={[W / 2 - 0.55, 0, -D / 2 + 0.45]}>
+        <mesh position={[0, 0.1, 0]} material={m.iron}>
+          <boxGeometry args={[0.36, 0.2, 0.36]} />
+        </mesh>
+        <mesh position={[0, 0.38, 0]} material={m.tank} castShadow>
+          <cylinderGeometry args={[0.17, 0.17, 0.36, 18]} />
+        </mesh>
+      </group>
+      {/* chauffe-eau solaire */}
+      <group position={[0.2, 0, -0.1]} rotation={[0, 0.2, 0]}>
+        <mesh position={[0, 0.2, 0]} rotation={[-0.75, 0, 0]} material={m.panel} castShadow>
+          <boxGeometry args={[0.7, 0.45, 0.03]} />
+        </mesh>
+        <mesh position={[0, 0.38, -0.2]} rotation={[0, 0, Math.PI / 2]} material={m.tank} castShadow>
+          <cylinderGeometry args={[0.07, 0.07, 0.72, 12]} />
+        </mesh>
+        <mesh position={[0, 0.12, -0.08]} material={m.iron}>
+          <boxGeometry args={[0.68, 0.02, 0.4]} />
+        </mesh>
+      </group>
+      {/* parabole */}
+      <group position={[W / 2 - 0.5, 0.28, D / 2 - 0.4]} rotation={[0.5, 0.6, 0]}>
+        <mesh material={m.tank}>
+          <sphereGeometry args={[0.16, 16, 8, 0, Math.PI * 2, 0, 0.6]} />
+        </mesh>
+        <mesh position={[0, -0.14, 0.03]} material={m.iron}>
+          <cylinderGeometry args={[0.01, 0.01, 0.3, 5]} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/* ---------------- Immeuble tunisien paramétrable ---------------- */
+function TunisianBuilding({ m, floors, W, D, seed }: { m: Mats; floors: number; W: number; D: number; seed: number }) {
+  const bays = Math.max(3, Math.round(W / 1.2));
+  const bay = W / bays;
+  const mid = Math.floor(bays / 2);
+  const lit = useMemo(() => {
+    let s = seed;
+    const r = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+    return Array.from({ length: floors + 1 }, () => Array.from({ length: bays }, () => r() > 0.62));
+  }, [floors, bays, seed]);
+  const total = (floors + 1) * H;
+
+  return (
+    <group>
+      {/* volume principal */}
+      <mesh position={[0, total / 2, 0]} material={m.render} castShadow receiveShadow>
+        <boxGeometry args={[W, total, D]} />
+      </mesh>
+      {/* soubassement en pierre */}
+      <mesh position={[0, 0.08, 0]} material={m.cream} castShadow receiveShadow>
+        <boxGeometry args={[W + 0.04, 0.16, D + 0.04]} />
+      </mesh>
+      {/* bandeaux d'étage */}
+      {Array.from({ length: floors }).map((_, f) => (
+        <mesh key={`b${f}`} position={[0, (f + 1) * H, D / 2 + 0.02]} material={m.cream}>
+          <boxGeometry args={[W + 0.04, 0.05, 0.05]} />
+        </mesh>
+      ))}
+
+      {/* RDC : porte en arc au centre, vitrines avec rideaux métalliques bleus */}
+      <ArchDoor m={m} x={-W / 2 + bay * (mid + 0.5)} z={D / 2} />
+      {Array.from({ length: bays }).map((_, b) =>
+        b === mid ? null : (
+          <group key={`rdc${b}`} position={[-W / 2 + bay * (b + 0.5), 0.3, D / 2 + 0.01]}>
+            <mesh material={lit[0][b] ? m.warm : m.glass}>
+              <boxGeometry args={[bay * 0.7, 0.36, 0.02]} />
+            </mesh>
+            <mesh position={[0, 0.13, 0.015]} material={m.shutter}>
+              <boxGeometry args={[bay * 0.72, 0.12, 0.02]} />
+            </mesh>
+          </group>
+        )
+      )}
+
+      {/* Étages : fenêtres à persiennes, balcon au centre */}
+      {Array.from({ length: floors }).map((_, i) => {
+        const f = i + 1;
+        const y = f * H + H / 2;
         return (
-          <group key={b} position={[x, 0, D / 2]}>
-            <mesh position={[0, H / 2 + 0.03, -0.02]} material={lit[b] ? m.warm : m.glass}>
-              <boxGeometry args={[bay - 0.14, H - 0.16, 0.02]} />
-            </mesh>
-            <mesh position={[0, H / 2 + 0.03, -0.04]} material={m.frame}>
-              <boxGeometry args={[bay - 0.1, H - 0.12, 0.015]} />
-            </mesh>
-            <mesh position={[0, H / 2 + 0.03, -0.005]} material={m.frame}>
-              <boxGeometry args={[0.018, H - 0.16, 0.02]} />
-            </mesh>
+          <group key={`f${f}`}>
+            {Array.from({ length: bays }).map((_, b) => {
+              const x = -W / 2 + bay * (b + 0.5);
+              if (b === mid) {
+                return (
+                  <group key={b}>
+                    <TunisianWindow m={m} x={x} y={y + 0.02} z={D / 2} lit={lit[f][b]} w={0.42} h={0.46} />
+                    <Balcony m={m} x={x} y={f * H + 0.04} z={D / 2} w={bay * 0.9} />
+                  </group>
+                );
+              }
+              return <TunisianWindow key={b} m={m} x={x} y={y} z={D / 2} lit={lit[f][b]} />;
+            })}
+            {/* façade latérale visible */}
+            {[-D / 4, D / 4].map((z, k) => (
+              <TunisianWindow key={`side${k}`} m={m} x={W / 2} y={y} z={z} rotY={Math.PI / 2} w={0.3} h={0.32} lit={lit[f][(k + f) % bays]} />
+            ))}
           </group>
         );
       })}
-      {Array.from({ length: BAYS + 1 }).map((_, b) => (
-        <mesh key={b} position={[-W / 2 + bay * b, H / 2, D / 2 + 0.06]} material={b % BAYS === 0 ? m.render : m.wood} castShadow>
-          <boxGeometry args={[0.07, H, 0.16]} />
-        </mesh>
-      ))}
-      {balcony && (
-        <group position={[0, 0, D / 2 + 0.28]}>
-          <mesh position={[0, 0.04, 0]} material={m.render} castShadow receiveShadow>
-            <boxGeometry args={[W * 0.62, 0.07, 0.5]} />
-          </mesh>
-          <mesh position={[0, 0.19, 0.24]} material={m.rail}>
-            <boxGeometry args={[W * 0.62, 0.24, 0.015]} />
-          </mesh>
-          <mesh position={[0, 0.31, 0.24]} material={m.frame}>
-            <boxGeometry args={[W * 0.62, 0.015, 0.03]} />
-          </mesh>
-        </group>
-      )}
-    </group>
-  );
-}
 
-/* ---------------- Étage en gros œuvre ---------------- */
-function RawFloor({ m, top }: { m: Mats; top: boolean }) {
-  const xs = [-W / 2, -W / 6, W / 6, W / 2];
-  const zs = [-D / 2, D / 2];
-  return (
-    <group>
-      <mesh position={[0, 0.04, 0]} material={m.concrete} castShadow receiveShadow>
-        <boxGeometry args={[W + 0.1, 0.08, D + 0.1]} />
-      </mesh>
-      {xs.map((x) =>
-        zs.map((z) =>
-          top ? (
-            <group key={`${x}${z}`} position={[x, 0.08, z]}>
-              <mesh position={[0, 0.12, 0]} material={m.concrete} castShadow>
-                <boxGeometry args={[0.13, 0.24, 0.13]} />
-              </mesh>
-              {[-0.035, 0.035].map((dx) =>
-                [-0.035, 0.035].map((dz) => (
-                  <mesh key={`${dx}${dz}`} position={[dx, 0.42, dz]} material={m.rebar}>
-                    <cylinderGeometry args={[0.008, 0.008, 0.4, 5]} />
-                  </mesh>
-                ))
-              )}
-            </group>
-          ) : (
-            <mesh key={`${x}${z}`} position={[x, H / 2, z]} material={m.concrete} castShadow>
-              <boxGeometry args={[0.13, H, 0.13]} />
-            </mesh>
-          )
-        )
-      )}
-      {!top && (
-        <mesh position={[0.8, 0.16, -0.3]} material={m.concrete} castShadow>
-          <boxGeometry args={[0.45, 0.16, 0.35]} />
-        </mesh>
-      )}
-    </group>
-  );
-}
-
-/* ---------------- Échafaudage + filet ---------------- */
-function Scaffold({ m }: { m: Mats }) {
-  const y0 = FINISHED * H - 0.2;
-  const y1 = FLOORS * H + 0.5;
-  const bars = useMemo<Bar[]>(() => {
-    const out: Bar[] = [];
-    const z0 = D / 2 + 0.38;
-    const z1 = D / 2 + 0.72;
-    const cols = 7;
-    const xAt = (c: number) => -W / 2 - 0.2 + ((W + 0.4) * c) / (cols - 1);
-    for (let c = 0; c < cols; c++) {
-      out.push([v(xAt(c), y0, z0), v(xAt(c), y1, z0), 0.025], [v(xAt(c), y0, z1), v(xAt(c), y1, z1), 0.025]);
-    }
-    for (let y = y0 + 0.05; y <= y1; y += 0.31) {
-      out.push([v(xAt(0), y, z0), v(xAt(cols - 1), y, z0), 0.02], [v(xAt(0), y, z1), v(xAt(cols - 1), y, z1), 0.02]);
-    }
-    for (let c = 0; c < cols - 1; c += 2) out.push([v(xAt(c), y0, z1), v(xAt(c + 1), y1, z1), 0.018]);
-    return out;
-  }, [y0, y1]);
-  return (
-    <group>
-      <Bars bars={bars} material={m.scaffold} />
-      {[FINISHED * H + 0.02, (FINISHED + 1) * H + 0.02, FLOORS * H + 0.02].map((y) => (
-        <mesh key={y} position={[0, y, D / 2 + 0.55]} material={m.plank} castShadow receiveShadow>
-          <boxGeometry args={[W + 0.4, 0.03, 0.32]} />
-        </mesh>
-      ))}
-      <mesh position={[0, (y0 + y1) / 2, D / 2 + 0.75]} material={m.net}>
-        <planeGeometry args={[W + 0.45, y1 - y0]} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ---------------- Bâtiment animé ---------------- */
-function Building({ m, reduced }: { m: Mats; reduced: boolean }) {
-  const floors = useRef<(THREE.Group | null)[]>([]);
-  const scaffold = useRef<THREE.Group>(null);
-  const t0 = useRef<number | null>(null);
-
-  const lit = useMemo(() => {
-    let s = 11;
-    const r = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-    return Array.from({ length: FINISHED }, () => Array.from({ length: BAYS }, () => r() > 0.55));
-  }, []);
-
-  useFrame((state) => {
-    if (t0.current === null) t0.current = state.clock.elapsedTime;
-    const t = reduced ? 100 : state.clock.elapsedTime - t0.current;
-    floors.current.forEach((g, i) => {
-      if (!g) return;
-      const p = ease((t - 0.4 - i * 0.28) / 0.8);
-      g.visible = p > 0.001;
-      g.scale.y = Math.max(0.001, p);
-      g.position.y = i * H;
-    });
-    if (scaffold.current) {
-      const p = ease((t - 0.4 - FLOORS * 0.28) / 0.8);
-      scaffold.current.visible = p > 0.001;
-      scaffold.current.scale.y = Math.max(0.001, p);
-    }
-  });
-
-  return (
-    <group>
-      <mesh position={[0, -0.05, 0]} material={m.concrete} receiveShadow castShadow>
-        <boxGeometry args={[W + 0.7, 0.1, D + 1.4]} />
-      </mesh>
-      {Array.from({ length: FLOORS }).map((_, i) => (
-        <group key={i} ref={(el) => { floors.current[i] = el; }} visible={false}>
-          {i < FINISHED ? <FinishedFloor i={i} m={m} lit={lit[i]} /> : <RawFloor m={m} top={i === FLOORS - 1} />}
-        </group>
-      ))}
-      <group ref={scaffold} visible={false}>
-        <Scaffold m={m} />
+      {/* toit */}
+      <group position={[0, total, 0]}>
+        <RoofKit m={m} W={W} D={D} />
       </group>
     </group>
   );
 }
 
-/* ---------------- Grue à tour en treillis ---------------- */
-const CRANE_POS = new THREE.Vector3(-3.6, 0, -1.6);
-const MAST = 7.2;
-const JIB = 6.2;
-
-function useCraneBars() {
-  return useMemo(() => {
-    const mast: Bar[] = [];
-    const s = 0.16;
-    const seg = 0.36;
-    const corners = [v(-s, 0, -s), v(s, 0, -s), v(s, 0, s), v(-s, 0, s)];
-    corners.forEach((c) => mast.push([c.clone(), c.clone().setY(MAST), 0.035]));
-    for (let y = 0; y < MAST - 0.01; y += seg) {
-      for (let k = 0; k < 4; k++) {
-        const a = corners[k].clone().setY(y);
-        mast.push([a, corners[(k + 1) % 4].clone().setY(y), 0.02]);
-        mast.push([a, corners[(k + 1) % 4].clone().setY(Math.min(MAST, y + seg)), 0.016]);
-      }
-    }
-    const jib: Bar[] = [];
-    const jw = 0.13;
-    const jh = 0.3;
-    const back = 2.0;
-    jib.push([v(-back, 0, -jw), v(JIB, 0, -jw), 0.03], [v(-back, 0, jw), v(JIB, 0, jw), 0.03], [v(-back * 0.6, jh, 0), v(JIB, jh * 0.4, 0), 0.03]);
-    for (let x = -back * 0.6; x < JIB - 0.2; x += 0.32) {
-      const topY = jh - ((x + back * 0.6) / (JIB + back * 0.6)) * jh * 0.6;
-      jib.push([v(x, 0, -jw), v(x, 0, jw), 0.015]);
-      jib.push([v(x, 0, -jw), v(x + 0.16, topY, 0), 0.014]);
-      jib.push([v(x, 0, jw), v(x + 0.16, topY, 0), 0.014]);
-    }
-    return { mast, jib };
-  }, []);
-}
-
-function Crane({ m, reduced }: { m: Mats; reduced: boolean }) {
-  const { mast, jib } = useCraneBars();
-  const turn = useRef<THREE.Group>(null);
-  const trolley = useRef<THREE.Group>(null);
-  const hook = useRef<THREE.Group>(null);
-  const cable = useRef<THREE.Mesh>(null);
-  const load = useRef<THREE.Group>(null);
-
-  // Cycle : prise de charge au stock → rotation → dépose au dernier étage → retour
-  const A_PILE = 0.78;
-  const R_PILE = 3.4;
-  const A_TOP = -0.42;
-  const R_TOP = 3.9;
-  const TOP_Y = FLOORS * H + 0.6 - MAST;
-  const PILE_Y = 0.6 - MAST;
-  const HIGH_Y = -1.0;
-
-  useFrame((state) => {
-    const t = reduced ? 3 : state.clock.elapsedTime;
-    const p = (t % 16) / 16;
-    let angle = A_PILE;
-    let radius = R_PILE;
-    let y = HIGH_Y;
-    let carrying = false;
-    if (p < 0.12) {
-      y = HIGH_Y + (PILE_Y - HIGH_Y) * smooth(p / 0.12);
-    } else if (p < 0.24) {
-      y = PILE_Y + (HIGH_Y - PILE_Y) * smooth((p - 0.12) / 0.12);
-      carrying = true;
-    } else if (p < 0.5) {
-      const k = smooth((p - 0.24) / 0.26);
-      angle = A_PILE + (A_TOP - A_PILE) * k;
-      radius = R_PILE + (R_TOP - R_PILE) * k;
-      carrying = true;
-    } else if (p < 0.62) {
-      angle = A_TOP;
-      radius = R_TOP;
-      y = HIGH_Y + (TOP_Y - HIGH_Y) * smooth((p - 0.5) / 0.12);
-      carrying = true;
-    } else if (p < 0.74) {
-      angle = A_TOP;
-      radius = R_TOP;
-      y = TOP_Y + (HIGH_Y - TOP_Y) * smooth((p - 0.62) / 0.12);
-    } else {
-      const k = smooth((p - 0.74) / 0.26);
-      angle = A_TOP + (A_PILE - A_TOP) * k;
-      radius = R_TOP + (R_PILE - R_TOP) * k;
-    }
-    if (turn.current) turn.current.rotation.y = angle;
-    if (trolley.current) trolley.current.position.x = radius;
-    if (hook.current) hook.current.position.y = y;
-    if (cable.current) {
-      cable.current.scale.y = -y;
-      cable.current.position.y = y / 2;
-    }
-    if (load.current) load.current.visible = carrying;
-  });
-
-  return (
-    <group position={CRANE_POS}>
-      <mesh position={[0, 0.12, 0]} material={m.concrete} castShadow receiveShadow>
-        <boxGeometry args={[1.1, 0.24, 1.1]} />
-      </mesh>
-      <Bars bars={mast} material={m.yellow} />
-      <group ref={turn} position={[0, MAST, 0]}>
-        <mesh position={[0.05, 0.05, 0.28]} material={m.steel} castShadow>
-          <boxGeometry args={[0.36, 0.34, 0.26]} />
-        </mesh>
-        <mesh position={[0.24, 0.05, 0.28]} material={m.glass}>
-          <boxGeometry args={[0.02, 0.24, 0.2]} />
-        </mesh>
-        <Bars bars={jib} material={m.yellow} />
-        <mesh position={[0, 0.7, 0]} material={m.yellow} castShadow>
-          <boxGeometry args={[0.1, 1.4, 0.1]} />
-        </mesh>
-        <Bars
-          bars={[
-            [v(0, 1.4, 0), v(JIB * 0.7, 0.3, 0), 0.012],
-            [v(0, 1.4, 0), v(-1.9, 0.05, 0), 0.012]
-          ]}
-          material={m.steel}
-        />
-        <mesh position={[-1.75, -0.12, 0]} material={m.concrete} castShadow>
-          <boxGeometry args={[0.5, 0.42, 0.42]} />
-        </mesh>
-        <group ref={trolley} position={[R_PILE, -0.04, 0]}>
-          <mesh material={m.steel} castShadow>
-            <boxGeometry args={[0.24, 0.07, 0.3]} />
-          </mesh>
-          <mesh ref={cable} material={m.steel}>
-            <cylinderGeometry args={[0.006, 0.006, 1, 4]} />
-          </mesh>
-          <group ref={hook}>
-            <mesh material={m.yellow} castShadow>
-              <boxGeometry args={[0.12, 0.1, 0.12]} />
-            </mesh>
-            <group ref={load} position={[0, -0.22, 0]}>
-              <mesh material={m.concrete} castShadow>
-                <boxGeometry args={[0.5, 0.26, 0.4]} />
-              </mesh>
-              <mesh position={[0, -0.15, 0]} material={m.plank}>
-                <boxGeometry args={[0.55, 0.04, 0.45]} />
-              </mesh>
-            </group>
-          </group>
-        </group>
-      </group>
-    </group>
-  );
-}
-
-/* ---------------- Piscine ---------------- */
+/* ---------------- Piscine (eau en shader, compatible découpe) ---------------- */
 const waterVertex = /* glsl */ `
+  #include <clipping_planes_pars_vertex>
   varying vec2 vUv;
   varying vec3 vWorld;
   void main() {
     vUv = uv;
     vec4 w = modelMatrix * vec4(position, 1.0);
     vWorld = w.xyz;
-    gl_Position = projectionMatrix * viewMatrix * w;
+    vec4 mvPosition = viewMatrix * w;
+    #include <clipping_planes_vertex>
+    gl_Position = projectionMatrix * mvPosition;
   }
 `;
 const waterFragment = /* glsl */ `
+  #include <clipping_planes_pars_fragment>
   uniform float uTime;
   uniform vec3 uSky;
   varying vec2 vUv;
   varying vec3 vWorld;
   void main() {
+    #include <clipping_planes_fragment>
     vec2 uv = vUv * vec2(9.0, 5.0);
     float c = 0.0;
     for (int i = 0; i < 4; i++) {
@@ -499,30 +367,27 @@ const waterFragment = /* glsl */ `
       c += abs(sin(uv.x + uv.y));
     }
     c /= 4.0;
-    vec3 deep = vec3(0.02, 0.32, 0.46);
-    vec3 shallow = vec3(0.16, 0.66, 0.74);
-    vec3 col = mix(shallow, deep, smoothstep(0.0, 1.0, vUv.x));
+    vec3 col = mix(vec3(0.16, 0.66, 0.74), vec3(0.02, 0.32, 0.46), smoothstep(0.0, 1.0, vUv.x));
     col += vec3(0.75, 0.95, 1.0) * pow(c, 6.0) * 0.55;
     vec3 viewDir = normalize(cameraPosition - vWorld);
-    float fres = pow(1.0 - max(viewDir.y, 0.0), 3.0);
-    col = mix(col, uSky, fres * 0.55);
+    col = mix(col, uSky, pow(1.0 - max(viewDir.y, 0.0), 3.0) * 0.55);
     gl_FragColor = vec4(col, 1.0);
   }
 `;
 
 function Palm({ position, height = 1.6, lean = 0.15, rot = 0 }: { position: [number, number, number]; height?: number; lean?: number; rot?: number }) {
-  const leaves = 8;
+  const trunk = useMemo(() => new THREE.MeshStandardMaterial({ color: '#7a5c3e', roughness: 0.95 }), []);
+  const leafA = useMemo(() => new THREE.MeshStandardMaterial({ color: '#3f6b2a', roughness: 0.8 }), []);
+  const leafB = useMemo(() => new THREE.MeshStandardMaterial({ color: '#4d7d33', roughness: 0.8 }), []);
   return (
     <group position={position} rotation={[0, rot, lean]}>
-      <mesh position={[0, height / 2, 0]} castShadow>
+      <mesh position={[0, height / 2, 0]} material={trunk} castShadow>
         <cylinderGeometry args={[0.035, 0.06, height, 7]} />
-        <meshStandardMaterial color="#7a5c3e" roughness={0.95} />
       </mesh>
-      {Array.from({ length: leaves }).map((_, k) => (
-        <group key={k} position={[0, height, 0]} rotation={[0, (k / leaves) * Math.PI * 2, 0]}>
-          <mesh position={[0.32, -0.08, 0]} rotation={[0, 0, -0.45]} castShadow>
+      {Array.from({ length: 8 }).map((_, k) => (
+        <group key={k} position={[0, height, 0]} rotation={[0, (k / 8) * Math.PI * 2, 0]}>
+          <mesh position={[0.32, -0.08, 0]} rotation={[0, 0, -0.45]} material={k % 2 ? leafA : leafB} castShadow>
             <boxGeometry args={[0.68, 0.015, 0.13]} />
-            <meshStandardMaterial color={k % 2 ? '#3f6b2a' : '#4d7d33'} roughness={0.8} />
           </mesh>
         </group>
       ))}
@@ -530,41 +395,36 @@ function Palm({ position, height = 1.6, lean = 0.15, rot = 0 }: { position: [num
   );
 }
 
-function Pool({ reduced }: { reduced: boolean }) {
+function Pool({ m }: { m: Mats }) {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uSky: { value: new THREE.Color('#e9b98c') } }), []);
   useFrame((s) => {
-    if (mat.current && !reduced) mat.current.uniforms.uTime.value = s.clock.elapsedTime;
+    if (mat.current) mat.current.uniforms.uTime.value = s.clock.elapsedTime;
   });
-  const PW = 3.2;
-  const PD = 1.5;
+  const PW = 3.0;
+  const PD = 1.4;
   return (
-    <group position={[3.3, 0, 3.4]} rotation={[0, -0.12, 0]}>
-      <mesh position={[0, 0.02, 0]} receiveShadow>
+    <group>
+      <mesh position={[0, 0.02, 0]} material={m.deck} receiveShadow>
         <boxGeometry args={[PW + 1.4, 0.04, PD + 1.1]} />
-        <meshStandardMaterial color="#9b7653" roughness={0.75} />
       </mesh>
-      <mesh position={[0, 0.05, 0]} receiveShadow>
+      <mesh position={[0, 0.05, 0]} material={m.cream} receiveShadow>
         <boxGeometry args={[PW + 0.24, 0.03, PD + 0.24]} />
-        <meshStandardMaterial color="#efe9df" roughness={0.6} />
       </mesh>
       <mesh position={[0, 0.068, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[PW, PD]} />
-        <shaderMaterial ref={mat} vertexShader={waterVertex} fragmentShader={waterFragment} uniforms={uniforms} />
+        <shaderMaterial ref={mat} vertexShader={waterVertex} fragmentShader={waterFragment} uniforms={uniforms} clipping />
       </mesh>
-      {[-0.7, 0.1].map((x) => (
+      {[-0.6, 0.2].map((x) => (
         <group key={x} position={[x, 0.04, PD / 2 + 0.42]}>
-          <mesh position={[0, 0.06, 0]} castShadow>
+          <mesh position={[0, 0.06, 0]} material={m.tank} castShadow>
             <boxGeometry args={[0.24, 0.05, 0.6]} />
-            <meshStandardMaterial color="#f4f1ea" roughness={0.7} />
           </mesh>
-          <mesh position={[0, 0.14, -0.26]} rotation={[0.7, 0, 0]} castShadow>
+          <mesh position={[0, 0.14, -0.26]} rotation={[0.7, 0, 0]} material={m.tank} castShadow>
             <boxGeometry args={[0.24, 0.04, 0.22]} />
-            <meshStandardMaterial color="#f4f1ea" roughness={0.7} />
           </mesh>
         </group>
       ))}
-      <pointLight position={[0, 0.3, 0]} color="#56d4ff" intensity={1.6} distance={3} />
       <Palm position={[PW / 2 + 0.45, 0.04, -0.3]} height={1.9} lean={-0.12} />
       <Palm position={[PW / 2 + 0.55, 0.04, 0.55]} height={1.5} lean={-0.2} rot={1.2} />
       <Palm position={[-PW / 2 - 0.5, 0.04, 0.6]} height={1.7} lean={0.15} rot={2.4} />
@@ -572,100 +432,129 @@ function Pool({ reduced }: { reduced: boolean }) {
   );
 }
 
-/* ---------------- Site : sol, palissade, conteneur, stock ---------------- */
-function Site({ m }: { m: Mats }) {
-  const ground = useMemo(() => noiseTexture('#6e6253', 30, 10), []);
-  const asphalt = useMemo(() => noiseTexture('#3a3c40', 18, 14), []);
-  const banner = useMemo(() => bannerTexture(), []);
-  const fence: [number, number, number, number][] = [
-    [-6.6, -0.6, Math.PI / 2, 8.6],
-    [-1.6, -4.9, 0, 10]
-  ];
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} receiveShadow>
-        <planeGeometry args={[120, 120]} />
-        <meshStandardMaterial map={asphalt} roughness={0.95} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.8, -0.095, -0.6]} receiveShadow>
-        <planeGeometry args={[11.6, 8.8]} />
-        <meshStandardMaterial map={ground} roughness={1} />
-      </mesh>
-      {fence.map(([x, z, r, len], i) => (
-        <group key={i} position={[x, 0, z]} rotation={[0, r, 0]}>
-          <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
-            <boxGeometry args={[len, 0.84, 0.04]} />
-            <meshStandardMaterial color={NAVY} roughness={0.6} />
-          </mesh>
-          {[-len / 4, len / 4].map((bx) => (
-            <mesh key={bx} position={[bx, 0.44, 0.025]}>
-              <planeGeometry args={[3.4, 0.53]} />
-              <meshStandardMaterial map={banner} roughness={0.5} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      <group position={[-5.2, 0, 2.3]} rotation={[0, 0.3, 0]}>
-        <mesh position={[0, 0.42, 0]} castShadow receiveShadow>
-          <boxGeometry args={[2.0, 0.84, 0.82]} />
-          <meshStandardMaterial color="#f2f2ef" roughness={0.6} metalness={0.2} />
-        </mesh>
-        <mesh position={[0, 0.46, 0.415]}>
-          <boxGeometry args={[0.5, 0.32, 0.01]} />
-          <meshStandardMaterial color="#6f8ea8" metalness={0.5} roughness={0.1} />
-        </mesh>
-        <mesh position={[0, 0.86, 0]}>
-          <boxGeometry args={[2.04, 0.04, 0.86]} />
-          <meshStandardMaterial color={YELLOW} />
-        </mesh>
-      </group>
-      <group position={[CRANE_POS.x + 2.4, 0, CRANE_POS.z - 2.4]}>
-        {[
-          [0, 0],
-          [0.6, 0.1],
-          [0.3, 0.55]
-        ].map(([x, z], i) => (
-          <group key={i} position={[x, 0, z]}>
-            <mesh position={[0, 0.02, 0]} material={m.plank} castShadow receiveShadow>
-              <boxGeometry args={[0.55, 0.04, 0.45]} />
-            </mesh>
-            <mesh position={[0, 0.17, 0]} material={m.concrete} castShadow>
-              <boxGeometry args={[0.5, 0.26, 0.4]} />
-            </mesh>
-          </group>
-        ))}
-        {[0, 1, 2, 3].map((k) => (
-          <mesh key={k} position={[-0.9, 0.03 + k * 0.025, 0.2 + (k % 2) * 0.02]} rotation={[0, 0.1, Math.PI / 2]} material={m.rebar}>
-            <cylinderGeometry args={[0.012, 0.012, 1.6, 5]} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
+/* ---------------- Découpe Plan / Réel ---------------- */
+type Planes = { real: THREE.Plane; plan: THREE.Plane };
 
-/* ---------------- Caméra : intro + parallaxe + scroll ---------------- */
-function CameraRig({ mobile, reduced }: { mobile: boolean; reduced: boolean }) {
-  const { camera, pointer } = useThree();
-  const look = useMemo(() => new THREE.Vector3(), []);
+/**
+ * Tout ce qui est à l'intérieur est affiché « réel » d'un côté de la ligne de scan,
+ * et en « plan 3D » (arêtes + volume translucide) de l'autre côté.
+ */
+function PlanToReal({ planes, children }: { planes: Planes; children: React.ReactNode }) {
+  const root = useRef<THREE.Group>(null);
+  const lineMat = useMemo(
+    () => new THREE.LineBasicMaterial({ color: '#cfe6ff', transparent: true, opacity: 0, clippingPlanes: [planes.plan], toneMapped: false }),
+    [planes]
+  );
+  const fillMat = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({ color: '#3f86e8', transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, clippingPlanes: [planes.plan] }),
+    [planes]
+  );
+
+  useLayoutEffect(() => {
+    const g = root.current;
+    if (!g) return;
+    const meshes: THREE.Mesh[] = [];
+    const mats = new Set<THREE.Material>();
+    g.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((mt) => mats.add(mt));
+      meshes.push(mesh);
+    });
+    mats.forEach((mt) => {
+      mt.clippingPlanes = [planes.real];
+      mt.clipShadows = true;
+      mt.needsUpdate = true;
+    });
+    const added: THREE.Object3D[] = [];
+    meshes.forEach((mesh) => {
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 28), lineMat);
+      const fill = new THREE.Mesh(mesh.geometry, fillMat);
+      edges.raycast = () => undefined;
+      fill.raycast = () => undefined;
+      mesh.add(edges, fill);
+      added.push(edges, fill);
+    });
+    return () => {
+      added.forEach((o) => o.parent?.remove(o));
+    };
+  }, [planes, lineMat, fillMat]);
+
+  // Les traits du plan apparaissent en fondu au chargement
   const t0 = useRef<number | null>(null);
   useFrame((state) => {
     if (t0.current === null) t0.current = state.clock.elapsedTime;
-    const intro = reduced ? 1 : ease((state.clock.elapsedTime - t0.current) / 3.2);
-    const s = clamp(window.scrollY / window.innerHeight, 0, 1.2);
-    const drift = reduced ? 0 : Math.sin(state.clock.elapsedTime * 0.08);
-    const R = (mobile ? 17 : 14.5) + (1 - intro) * 7;
-    const theta = 0.62 + drift * 0.07 + pointer.x * 0.08 - s * 0.25;
-    const tx = Math.sin(theta) * R;
-    const tz = Math.cos(theta) * R;
-    const ty = 3.4 + (1 - intro) * 5 + pointer.y * 0.5 + s * 2.5;
-    camera.position.x += (tx - camera.position.x) * 0.06;
-    camera.position.y += (ty - camera.position.y) * 0.06;
-    camera.position.z += (tz - camera.position.z) * 0.06;
-    look.set(mobile ? 0.2 : -2.3, (mobile ? 1.0 : 2.6) + s * 0.6, 0.4);
-    camera.lookAt(look);
+    const k = ease((state.clock.elapsedTime - t0.current) / 1.2);
+    lineMat.opacity = 0.95 * k;
+    fillMat.opacity = 0.09 * k;
   });
-  return null;
+
+  return <group ref={root}>{children}</group>;
+}
+
+/* ---------------- Caméra + ligne de scan ---------------- */
+const pivot = new THREE.Vector3();
+const right = new THREE.Vector3();
+
+function Director({ planes, mobile }: { planes: Planes; mobile: boolean }) {
+  const { camera, pointer } = useThree();
+  const beam = useRef<THREE.Group>(null);
+  const beamMat = useRef<THREE.MeshBasicMaterial>(null);
+  const t0 = useRef<number | null>(null);
+
+  useFrame((state) => {
+    if (t0.current === null) t0.current = state.clock.elapsedTime;
+    const t = state.clock.elapsedTime - t0.current;
+
+    // Caméra : arrivée en douceur, légère dérive, parallaxe souris et scroll
+    const intro = ease(t / 3);
+    const s = clamp(window.scrollY / window.innerHeight, 0, 1.2);
+    const theta = 0.55 + Math.sin(state.clock.elapsedTime * 0.08) * 0.06 + pointer.x * 0.07 - s * 0.2;
+    const R = (mobile ? 17 : 12.5) + (1 - intro) * 6;
+    camera.position.x += (Math.sin(theta) * R - camera.position.x) * 0.06;
+    camera.position.z += (Math.cos(theta) * R - camera.position.z) * 0.06;
+    camera.position.y += (3.2 + (1 - intro) * 4 + pointer.y * 0.4 + s * 2.2 - camera.position.y) * 0.06;
+    pivot.set(mobile ? -0.8 : -2.8, (mobile ? -0.6 : 2.0) + s * 0.5, 0.4);
+    camera.lookAt(pivot);
+
+    // Scénario automatique : plan seul → balayage → réalisé
+    if (!split.manual) {
+      split.value = smooth((t - 1.4) / 3.2);
+      if (t > 4.8) split.introDone = true;
+    }
+
+    // Plan de découpe perpendiculaire à l'écran (balayage gauche → droite)
+    const camTheta = Math.atan2(camera.position.x, camera.position.z);
+    right.set(Math.cos(camTheta), 0, -Math.sin(camTheta));
+    const span = mobile ? 6 : 7.5;
+    // aux extrémités, la découpe sort complètement du cadre (tout plan / tout réel)
+    const offset = split.value >= 0.999 ? 300 : split.value <= 0.001 ? -300 : -span + split.value * span * 2 + (mobile ? 0 : 1.2);
+    const c = right.dot(pivot) + offset;
+    planes.real.normal.copy(right).negate();
+    planes.real.constant = c;
+    planes.plan.normal.copy(right);
+    planes.plan.constant = -c;
+
+    if (beam.current && beamMat.current) {
+      beam.current.position.copy(pivot).addScaledVector(right, offset);
+      beam.current.position.y = 2.5;
+      beam.current.rotation.y = camTheta;
+      const edge = split.value > 0.001 && split.value < 0.999;
+      beamMat.current.opacity += ((edge ? 1 : 0) - beamMat.current.opacity) * 0.2;
+      beamMat.current.color.setRGB(3.2, 2.3, 0.2); // > 1 → lueur via le bloom
+    }
+  });
+
+  return (
+    <group ref={beam}>
+      {/* ligne de scan : trait lumineux vertical (le halo vient du bloom) */}
+      <mesh>
+        <boxGeometry args={[0.035, 7.5, 0.035]} />
+        <meshBasicMaterial ref={beamMat} color={YELLOW} transparent opacity={0} toneMapped={false} depthWrite={false} />
+      </mesh>
+    </group>
+  );
 }
 
 function ReadySignal() {
@@ -678,22 +567,28 @@ function ReadySignal() {
   return null;
 }
 
-const SUN = new THREE.Vector3(-60, 9, 45);
+const SUN = new THREE.Vector3(-60, 10, 45);
 
-function World({ reduced, mobile }: { reduced: boolean; mobile: boolean }) {
+function World({ mobile }: { mobile: boolean }) {
   const m = useMaterials();
+  const planes = useMemo<Planes>(() => ({ real: new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0), plan: new THREE.Plane(new THREE.Vector3(1, 0, 0), 0) }), []);
+  const asphalt = useMemo(() => noiseTexture('#4a4b4f', 16, 14), []);
+  const bpGround = useMemo(() => blueprintGroundTexture(), []);
+  const groundMat = useMemo(() => new THREE.MeshStandardMaterial({ map: asphalt, roughness: 0.95 }), [asphalt]);
+  const bpGroundMat = useMemo(() => new THREE.MeshBasicMaterial({ map: bpGround, clippingPlanes: [planes.plan], toneMapped: false }), [bpGround, planes]);
+
   return (
     <>
-      <Sky distance={4500} sunPosition={SUN} turbidity={9} rayleigh={2.6} mieCoefficient={0.006} mieDirectionalG={0.86} />
-      <fog attach="fog" args={['#b79a8a', 30, 95]} />
+      <Sky distance={4500} sunPosition={SUN} turbidity={8} rayleigh={2.4} mieCoefficient={0.006} mieDirectionalG={0.86} />
+      <fog attach="fog" args={['#c9a690', 32, 100]} />
       <Environment resolution={128} frames={1}>
-        <Sky sunPosition={SUN} turbidity={9} rayleigh={2.6} mieCoefficient={0.006} mieDirectionalG={0.86} />
+        <Sky sunPosition={SUN} turbidity={8} rayleigh={2.4} mieCoefficient={0.006} mieDirectionalG={0.86} />
       </Environment>
-      <hemisphereLight args={['#c9d6ff', '#5a4636', 0.55]} />
+      <hemisphereLight args={['#c9d6ff', '#5a4636', 0.6]} />
       <directionalLight
         position={[SUN.x * 0.2, SUN.y * 0.9, SUN.z * 0.2]}
-        intensity={2.6}
-        color="#ffcf9e"
+        intensity={2.5}
+        color="#ffd2a3"
         castShadow
         shadow-mapSize={mobile ? [1024, 1024] : [2048, 2048]}
         shadow-bias={-0.0004}
@@ -703,36 +598,66 @@ function World({ reduced, mobile }: { reduced: boolean; mobile: boolean }) {
         shadow-camera-top={12}
         shadow-camera-bottom={-12}
         shadow-camera-near={1}
-        shadow-camera-far={40}
+        shadow-camera-far={45}
       />
 
-      <group position={[mobile ? 0 : 0.6, 0, 0]} scale={mobile ? 0.85 : 1}>
-        <Building m={m} reduced={reduced} />
-        <Crane m={m} reduced={reduced} />
-        <Pool reduced={reduced} />
-        <Site m={m} />
-        <ContactShadows position={[0, -0.04, 0]} scale={16} blur={2.4} opacity={0.55} far={6} frames={1} />
+      {/* sol "plan d'architecte" (visible côté plan) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.11, 0]} material={bpGroundMat}>
+        <planeGeometry args={[120, 120]} />
+      </mesh>
+
+      <group position={[mobile ? 0 : 0.4, 0, 0]} scale={mobile ? 0.85 : 1}>
+        <PlanToReal planes={planes}>
+          {/* sol réel : asphalte + trottoirs */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} material={groundMat} receiveShadow>
+            <planeGeometry args={[120, 120]} />
+          </mesh>
+          <mesh position={[-0.6, -0.05, 0.6]} material={m.tile} receiveShadow>
+            <boxGeometry args={[12, 0.1, 6.4]} />
+          </mesh>
+
+          {/* Immeuble R+4 */}
+          <group position={[0.6, 0, -0.6]}>
+            <TunisianBuilding m={m} floors={4} W={4.6} D={2.8} seed={11} />
+          </group>
+          {/* Immeuble R+3, en retrait */}
+          <group position={[-4.2, 0, -0.2]} rotation={[0, 0.08, 0]}>
+            <TunisianBuilding m={m} floors={3} W={3.4} D={2.6} seed={37} />
+          </group>
+          {/* Piscine + palmiers */}
+          <group position={[3.6, 0, 2.6]} rotation={[0, -0.12, 0]}>
+            <Pool m={m} />
+          </group>
+          <Palm position={[-1.8, 0, 1.9]} height={1.8} lean={0.1} rot={0.6} />
+          <Palm position={[-6.4, 0, 1.5]} height={1.6} lean={-0.12} rot={1.9} />
+        </PlanToReal>
       </group>
 
-      <CameraRig mobile={mobile} reduced={reduced} />
+      <Director planes={planes} mobile={mobile} />
       <ReadySignal />
 
       {!mobile && (
         <EffectComposer multisampling={0}>
-          <N8AO aoRadius={0.6} intensity={2.2} distanceFalloff={0.6} halfRes />
-          <Bloom mipmapBlur luminanceThreshold={1} intensity={0.55} />
+          <Bloom mipmapBlur luminanceThreshold={1} intensity={0.6} />
           <SMAA />
-          <Vignette eskil={false} offset={0.25} darkness={0.55} />
+          <Vignette eskil={false} offset={0.25} darkness={0.5} />
         </EffectComposer>
       )}
     </>
   );
 }
 
+function ClippingOn() {
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.localClippingEnabled = true;
+  }, [gl]);
+  return null;
+}
+
 export default function HeroScene() {
   const wrap = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
-  const reduced = false; // scène animée pour tous (voir useReducedMotion)
   const [mobile, setMobile] = useState(false);
 
   useEffect(() => {
@@ -742,6 +667,10 @@ export default function HeroScene() {
     mq.addEventListener('change', onMq);
     const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.01 });
     if (wrap.current) io.observe(wrap.current);
+    // nouvelle visite du hero → rejouer le scénario
+    split.value = 0;
+    split.manual = false;
+    split.introDone = false;
     return () => {
       mq.removeEventListener('change', onMq);
       io.disconnect();
@@ -753,12 +682,13 @@ export default function HeroScene() {
       <Canvas
         shadows
         dpr={[1, mobile ? 1.5 : 1.75]}
-        camera={{ position: [14, 9, 18], fov: 36, near: 0.1, far: 200 }}
+        camera={{ position: [12, 8, 20], fov: 36, near: 0.1, far: 200 }}
         frameloop={visible ? 'always' : 'never'}
         gl={{ antialias: false, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.95 }}
         fallback={<div className="hero-fallback absolute inset-0" />}
       >
-        <World reduced={reduced} mobile={mobile} />
+        <ClippingOn />
+        <World mobile={mobile} />
       </Canvas>
     </div>
   );

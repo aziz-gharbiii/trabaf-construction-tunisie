@@ -7,6 +7,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, ArrowDown, MessageCircle } from 'lucide-react';
 import { useSettings, whatsappLink } from '@/lib/hooks';
 import { Magnetic, useReducedMotion } from '@/components/motion/Reveal';
+import { PlanRealControl } from '@/components/home/PlanRealControl';
 
 const HeroScene = dynamic(() => import('@/components/three/HeroScene'), {
   ssr: false,
@@ -33,7 +34,7 @@ export function HeroV2() {
       <HeroScene />
 
       {/* Dégradés de lisibilité */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#050d1c] via-[#050d1c]/70 to-transparent md:via-[#050d1c]/40" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#050d1c]/90 via-[#050d1c]/45 to-transparent md:via-[#050d1c]/25" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#050d1c] to-transparent" />
 
       <motion.div
@@ -47,7 +48,7 @@ export function HeroV2() {
           className="mb-6 inline-flex w-fit items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200 backdrop-blur"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-[#F5B800] shadow-[0_0_12px_#F5B800]" />
-          Construction · Génie civil · Piscines — Tunisie
+          Du plan à la réalité — Tunisie
         </motion.div>
 
         <h1 className="font-display max-w-5xl text-[clamp(3rem,8vw,6.5rem)] font-extrabold uppercase leading-[0.88] tracking-[-0.02em]">
@@ -69,8 +70,8 @@ export function HeroV2() {
           transition={{ duration: 0.9, delay: 0.85, ease: EASE }}
           className="mt-6 max-w-xl text-base leading-relaxed text-slate-300 sm:text-lg"
         >
-          Bâtiments clés en main, génie civil et piscines sur mesure. Une seule équipe d&apos;ingénieurs, de
-          l&apos;étude à la remise des clés.
+          Immeubles, villas et piscines sur mesure en Tunisie. De votre plan d&apos;architecte jusqu&apos;à la
+          remise des clés, une seule équipe d&apos;ingénieurs.
         </motion.p>
 
         <motion.div
@@ -99,6 +100,10 @@ export function HeroV2() {
           </a>
         </motion.div>
       </motion.div>
+
+      <div className="absolute right-4 top-24 z-20 md:bottom-28 md:right-8 md:top-auto">
+        <PlanRealControl />
+      </div>
 
       {/* Bandeau chiffres en bas du hero */}
       <motion.div
