@@ -4,11 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Phone, ShieldCheck, HardHat, Building2, Waves, Sparkles } from 'lucide-react';
-import { DataService } from '@/lib/data-service';
 import { getImagePath } from '@/lib/image-path';
 
+import { useSettings } from '@/lib/hooks';
 export function Hero() {
-  const settings = DataService.getCompanySettings();
+  const settings = useSettings();
 
   return (
     <section className="bg-[#081B38] overflow-hidden text-white">

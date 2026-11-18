@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { TrabafLogo } from '@/components/ui/TrabafLogo';
 import { FacebookIcon } from '@/components/ui/FacebookIcon';
 import { Phone, Mail, MapPin, ArrowUpRight, ShieldCheck } from 'lucide-react';
-import { DataService } from '@/lib/data-service';
 
+import { useSettings } from '@/lib/hooks';
 export function Footer() {
-  const settings = DataService.getCompanySettings();
+  const settings = useSettings();
 
   return (
     <footer className="bg-[#081B38] text-white border-t-4 border-[#F5B800] pt-16 pb-8">

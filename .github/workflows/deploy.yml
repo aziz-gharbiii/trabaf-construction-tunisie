@@ -36,6 +36,7 @@ jobs:
 
       - name: Build Next.js
         run: npx next build
+        # Les variables publiques Supabase sont lues depuis .env.production (versionné).
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

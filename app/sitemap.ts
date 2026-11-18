@@ -1,15 +1,15 @@
 import { MetadataRoute } from 'next';
-import { DataService } from '@/lib/data-service';
+import { getSiteData } from '@/lib/build-data';
 
 export const dynamic = 'force-static';
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://trabaf-construction.tn';
-  const projects = DataService.getProjects(true);
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://trabafconstruction.com';
+  const { projects } = await getSiteData();
 
   const projectUrls = projects.map((p) => ({
     url: `${baseUrl}/projets/${p.slug}`,
-    lastModified: new Date(p.created_at),
+    lastModified: p.created_at ? new Date(p.created_at) : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.8
   }));

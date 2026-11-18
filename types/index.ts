@@ -62,6 +62,25 @@ export interface Message {
   location?: string;
   is_real?: boolean;
   user_agent?: string;
+  // Champs du formulaire de devis (wizard)
+  project_type?: string;
+  surface?: string;
+  budget?: string;
+  project_city?: string;
+  timeline?: string;
+  source?: 'contact' | 'devis';
+}
+
+export interface Partner {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  url?: string;
+  logo_url?: string;
+  accent: string;
+  display_order: number;
+  is_active: boolean;
 }
 
 export interface VisitorLog {
@@ -101,4 +120,5 @@ export interface CompanySettings {
   description: string;
   slogan: string;
   stats: KeyStat[];
+  partners?: Partner[];
 }

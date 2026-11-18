@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { DataService } from '@/lib/data-service';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { Service } from '@/types';
 import {
   Wrench,
@@ -43,6 +44,7 @@ export default function AdminServicesPage() {
   const [iconName, setIconName] = useState('Building2');
   const [displayOrder, setDisplayOrder] = useState<number>(1);
   const [isActive, setIsActive] = useState(true);
+  const [imageUrl, setImageUrl] = useState('');
 
   const loadServices = () => {
     setServices(DataService.getServices());
@@ -62,6 +64,7 @@ export default function AdminServicesPage() {
       setIconName(service.icon_name);
       setDisplayOrder(service.display_order);
       setIsActive(service.is_active);
+      setImageUrl(service.image_url || '');
     } else {
       setEditingService(null);
       setTitle('');
@@ -69,6 +72,7 @@ export default function AdminServicesPage() {
       setIconName('Building2');
       setDisplayOrder(services.length + 1);
       setIsActive(true);
+      setImageUrl('');
     }
     setIsModalOpen(true);
   };
@@ -83,7 +87,8 @@ export default function AdminServicesPage() {
       description,
       icon_name: iconName,
       display_order: displayOrder,
-      is_active: isActive
+      is_active: isActive,
+      image_url: imageUrl || undefined
     });
 
     setIsModalOpen(false);
@@ -294,6 +299,24 @@ export default function AdminServicesPage() {
                   placeholder="Expliquez ce que propose TRABAF pour ce domaine d'activité..."
                   className="w-full bg-[#081B38] border border-[#18437E] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#F5B800] resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-200 mb-1">Photo du service (slider de la page d&apos;accueil)</label>
+                <div className="flex items-center gap-3">
+                  {imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={imageUrl} alt="" className="h-14 w-14 rounded-lg border border-[#18437E] object-cover" />
+                  )}
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="/images/… ou URL"
+                    className="flex-1 bg-[#081B38] border border-[#18437E] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#F5B800]"
+                  />
+                  <ImageUpload label="Envoyer" onUploaded={([url]) => setImageUrl(url)} />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { DataService } from '@/lib/data-service';
 import { Award, Building2, Users, CheckCircle } from 'lucide-react';
 
+import { useSettings } from '@/lib/hooks';
 export function KeyStats() {
-  const settings = DataService.getCompanySettings();
+  const settings = useSettings();
 
   const iconMap: Record<string, React.ReactNode> = {
     '1': <Building2 className="w-8 h-8 text-[#F5B800]" />,

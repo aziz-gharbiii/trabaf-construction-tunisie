@@ -6,6 +6,7 @@ import { DataService } from '@/lib/data-service';
 import { Project, Service, Message, VisitorLog } from '@/types';
 import { getVisitorStats, clearVisitorLogs } from '@/lib/visitor-tracker';
 import { formatDate } from '@/lib/utils';
+import { projectHref } from '@/lib/hooks';
 import {
   Building,
   Wrench,
@@ -38,7 +39,7 @@ export default function AdminDashboardPage() {
     setProjects(DataService.getProjects());
     setServices(DataService.getServices());
     setMessages(DataService.getMessages());
-    setVisitorStats(getVisitorStats());
+    void getVisitorStats().then(setVisitorStats);
   };
 
   useEffect(() => {
@@ -53,8 +54,7 @@ export default function AdminDashboardPage() {
 
   const handleClearVisitors = () => {
     if (confirm("Voulez-vous réinitialiser le journal des visiteurs réels ?")) {
-      clearVisitorLogs();
-      loadData();
+      void clearVisitorLogs().then(loadData);
     }
   };
 
@@ -99,7 +99,7 @@ export default function AdminDashboardPage() {
             <Globe className="w-5 h-5 text-emerald-400" />
           </div>
           <div className="text-xs font-bold uppercase text-slate-300">Visiteurs uniques (IP)</div>
-          <div className="text-3xl font-black text-emerald-400">{visitorStats.uniqueIpCount} IP</div>
+          <div className="text-3xl font-black text-emerald-400">{visitorStats.uniqueIpCount} visiteurs</div>
           <div className="text-xs text-slate-300">
             Total vues: <strong className="text-white">{visitorStats.totalVisits} pages</strong>
           </div>
@@ -182,7 +182,7 @@ export default function AdminDashboardPage() {
                     {p.status}
                   </span>
                   <Link
-                    href={`/projets/${p.slug}`}
+                    href={projectHref(p.slug)}
                     target="_blank"
                     className="p-1.5 rounded bg-[#18437E] text-slate-200 hover:text-[#F5B800]"
                   >
@@ -265,7 +265,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-3">
             <span className="bg-emerald-950 text-emerald-300 border border-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>{visitorStats.uniqueIpCount} IP unique(s) enregistrée(s)</span>
+              <span>{visitorStats.uniqueIpCount} visiteur(s) unique(s) — 30 derniers jours</span>
             </span>
 
             <button

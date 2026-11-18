@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { DataService } from '@/lib/data-service';
 import { Service } from '@/types';
+import { useServices } from '@/lib/hooks';
 import {
   Building2,
   HardHat,
@@ -33,7 +33,7 @@ const iconMap: Record<string, React.ReactComponentElement<any>> = {
 
 export function ServicesSection({ limit }: { limit?: number }) {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const allServices = DataService.getServices(true);
+  const allServices = useServices(true);
   const services = limit ? allServices.slice(0, limit) : allServices;
 
   return (

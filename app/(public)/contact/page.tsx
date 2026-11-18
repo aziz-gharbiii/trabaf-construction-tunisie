@@ -1,7 +1,7 @@
 import React from 'react';
 import { ContactForm } from '@/components/public/ContactForm';
 import { MapView } from '@/components/ui/MapView';
-import { DataService } from '@/lib/data-service';
+import { getSiteData } from '@/lib/build-data';
 import { FacebookIcon } from '@/components/ui/FacebookIcon';
 import { Phone, Mail, MapPin, MessageCircle, Clock, ShieldCheck } from 'lucide-react';
 
@@ -10,8 +10,8 @@ export const metadata = {
   description: 'Contactez TRABAF Construction Tunisie par téléphone, email, WhatsApp ou via notre formulaire de devis.'
 };
 
-export default function ContactPage() {
-  const settings = DataService.getCompanySettings();
+export default async function ContactPage() {
+  const { settings } = await getSiteData();
 
   return (
     <div className="bg-slate-900 min-h-screen text-white">

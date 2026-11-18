@@ -21,6 +21,30 @@ export const initialCompanySettings: CompanySettings = {
     { id: '2', label: 'Années d\'Expérience', value: 12, prefix: '+', suffix: ' ans', description: 'Expertise reconnue en BTP & Piscines' },
     { id: '3', label: 'Collaborateurs & Ingénieurs', value: 85, prefix: '+', suffix: '', description: 'Experts qualifiés et effectif terrain' },
     { id: '4', label: 'Taux de Satisfaction', value: 99, prefix: '', suffix: '%', description: 'Respect strict des délais et de la qualité' }
+  ],
+  partners: [
+    {
+      id: 'partner-nova-dar',
+      name: 'Nova Dar',
+      tagline: 'Partenaire officiel',
+      description: 'Partenaire de confiance de TRABAF Construction Tunisie.',
+      url: '',
+      logo_url: '',
+      accent: '#F5B800',
+      display_order: 1,
+      is_active: true
+    },
+    {
+      id: 'partner-trabaf-pool',
+      name: 'Trabaf Pool',
+      tagline: 'Piscines sur mesure',
+      description: 'Conception, fabrication et pose de piscines béton & liner sur mesure.',
+      url: '',
+      logo_url: '',
+      accent: '#38BDF8',
+      display_order: 2,
+      is_active: true
+    }
   ]
 };
 

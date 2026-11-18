@@ -1,6 +1,6 @@
 import React from 'react';
 import { notFound } from 'next/navigation';
-import { DataService } from '@/lib/data-service';
+import { getSiteData } from '@/lib/build-data';
 import { ProjectDetailView } from '@/components/public/ProjectDetailView';
 
 interface ProjectPageProps {
@@ -10,7 +10,7 @@ interface ProjectPageProps {
 }
 
 export async function generateStaticParams() {
-  const projects = DataService.getProjects();
+  const { projects } = await getSiteData();
   return projects.map((project) => ({
     slug: project.slug
   }));
@@ -18,7 +18,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: ProjectPageProps) {
   const { slug } = await params;
-  const project = DataService.getProjectBySlug(slug);
+  const project = (await getSiteData()).projects.find((p) => p.slug === slug);
   if (!project) return { title: 'Projet Non Trouvé | TRABAF Construction' };
 
   return {
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: ProjectPageProps) {
 
 export default async function SingleProjectPage({ params }: ProjectPageProps) {
   const { slug } = await params;
-  const project = DataService.getProjectBySlug(slug);
+  const project = (await getSiteData()).projects.find((p) => p.slug === slug);
 
   if (!project) {
     notFound();

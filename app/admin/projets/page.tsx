@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DataService } from '@/lib/data-service';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 import { Project, ProjectCategory, ProjectStatus } from '@/types';
+import { projectHref } from '@/lib/hooks';
 import {
   Building,
   Plus,
@@ -280,7 +282,7 @@ export default function AdminProjectsPage() {
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          href={`/projets/${p.slug}`}
+                          href={projectHref(p.slug)}
                           target="_blank"
                           className="p-2 rounded-lg bg-[#18437E] hover:bg-[#F5B800] hover:text-[#081B38] transition-colors"
                           title="Prévisualiser"
@@ -545,6 +547,46 @@ export default function AdminProjectsPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <ImageUpload
+                    label="Photo principale"
+                    onUploaded={([url]) => {
+                      setMainImageUrl(url);
+                      if (!galleryUrls.includes(url)) setGalleryUrls([url, ...galleryUrls]);
+                    }}
+                  />
+                  <ImageUpload label="Ajouter à la galerie" multiple onUploaded={(urls) => setGalleryUrls([...galleryUrls, ...urls.filter((u) => !galleryUrls.includes(u))])} />
+                </div>
+
+                {galleryUrls.length > 0 && (
+                  <div>
+                    <div className="mb-1 text-[11px] text-slate-300">Galerie ({galleryUrls.length}) — clic sur une photo pour la mettre en principale</div>
+                    <div className="flex flex-wrap gap-2">
+                      {galleryUrls.map((url) => (
+                        <div key={url} className="group relative">
+                          <button
+                            type="button"
+                            onClick={() => setMainImageUrl(url)}
+                            className={`relative block h-16 w-16 overflow-hidden rounded-lg border ${mainImageUrl === url ? 'border-[#F5B800] ring-2 ring-[#F5B800]' : 'border-slate-700'}`}
+                            aria-label="Choisir comme photo principale"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt="" className="h-full w-full object-cover" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGalleryUrls(galleryUrls.filter((u) => u !== url))}
+                            className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white group-hover:flex"
+                            aria-label="Retirer de la galerie"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Toggles */}

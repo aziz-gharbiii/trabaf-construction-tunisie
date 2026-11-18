@@ -28,12 +28,11 @@ export function ContactForm() {
     setErrorMsg(null);
 
     try {
-      const ipInfo = await getVisitorIpInfo();
-      DataService.addMessage({
+      const ipInfo = await getVisitorIpInfo().catch(() => ({ city: undefined, country: undefined }));
+      await DataService.submitMessage({
         ...data,
         is_real: true,
-        ip_address: ipInfo.ip,
-        location: `${ipInfo.city || 'Tunis'}, ${ipInfo.country || 'Tunisie'}`
+        location: [ipInfo.city, ipInfo.country].filter(Boolean).join(', ') || undefined
       });
       setSubmitted(true);
       reset();

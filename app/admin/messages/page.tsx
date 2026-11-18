@@ -273,21 +273,52 @@ export default function AdminMessagesPage() {
                 <span className="text-slate-400">Nom :</span>
                 <strong className="text-white">{selectedMessage.full_name}</strong>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Email :</span>
-                <a href={`mailto:${selectedMessage.email}`} className="text-[#F5B800] font-bold hover:underline">
-                  {selectedMessage.email}
-                </a>
-              </div>
-              {selectedMessage.phone && (
+              {selectedMessage.email && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Téléphone :</span>
-                  <a href={`tel:${selectedMessage.phone.replace(/\s+/g, '')}`} className="text-[#F5B800] font-bold hover:underline">
-                    {selectedMessage.phone}
+                  <span className="text-slate-400">Email :</span>
+                  <a href={`mailto:${selectedMessage.email}`} className="text-[#F5B800] font-bold hover:underline">
+                    {selectedMessage.email}
                   </a>
                 </div>
               )}
+              {selectedMessage.phone && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Téléphone :</span>
+                  <span className="flex gap-3">
+                    <a href={`tel:${selectedMessage.phone.replace(/\s+/g, '')}`} className="text-[#F5B800] font-bold hover:underline">
+                      {selectedMessage.phone}
+                    </a>
+                    <a
+                      href={`https://wa.me/${selectedMessage.phone.replace(/[^\d]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-400 font-bold hover:underline"
+                    >
+                      WhatsApp
+                    </a>
+                  </span>
+                </div>
+              )}
             </div>
+
+            {selectedMessage.source === 'devis' && (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {[
+                  ['Type de projet', selectedMessage.project_type],
+                  ['Ville', selectedMessage.project_city],
+                  ['Surface', selectedMessage.surface],
+                  ['Budget', selectedMessage.budget],
+                  ['Démarrage', selectedMessage.timeline]
+                ]
+                  .filter(([, v]) => v)
+                  .map(([k, v]) => (
+                    <div key={k} className="rounded-lg border border-[#F5B800]/30 bg-[#081B38] p-3">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#F5B800]">{k}</div>
+                      <div className="mt-1 font-bold text-white">{v}</div>
+                    </div>
+                  ))}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-300">Contenu du message :</label>

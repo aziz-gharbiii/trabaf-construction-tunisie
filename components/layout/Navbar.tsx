@@ -1,164 +1,158 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight, Menu, MessageCircle, Phone, X } from 'lucide-react';
 import { TrabafLogo } from '@/components/ui/TrabafLogo';
-import { Menu, X, Phone, Mail, FileText, ChevronRight } from 'lucide-react';
-import { DataService } from '@/lib/data-service';
+import { useSettings, whatsappLink, telLink } from '@/lib/hooks';
+
+const NAV = [
+  { name: 'Accueil', href: '/' },
+  { name: 'À propos', href: '/a-propos' },
+  { name: 'Services', href: '/services' },
+  { name: 'Réalisations', href: '/projets' },
+  { name: 'Contact', href: '/contact' }
+];
+
+// Pages qui gèrent elles-mêmes l'espace sous la barre (hero plein écran)
+const FULL_BLEED = ['/', '/devis'];
 
 export function Navbar() {
   const pathname = usePathname();
+  const settings = useSettings();
   const [scrolled, setScrolled] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [settings, setSettings] = useState(DataService.getCompanySettings());
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 30);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const navLinks = [
-    { name: 'Accueil', href: '/' },
-    { name: 'À propos', href: '/a-propos' },
-    { name: 'Services', href: '/services' },
-    { name: 'Réalisations', href: '/projets' },
-    { name: 'Contact', href: '/contact' }
-  ];
+  useEffect(() => setOpen(false), [pathname]);
 
-  const isActive = (path: string) => {
-    if (path === '/' && pathname === '/') return true;
-    if (path !== '/' && pathname.startsWith(path)) return true;
-    return false;
-  };
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+  }, [open]);
+
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const solid = scrolled || !FULL_BLEED.includes(pathname);
 
   return (
     <>
-      {/* Top Header Bar */}
-      <div className="bg-[#081B38] text-slate-300 text-xs py-2 px-4 border-b border-[#18437E]/40 hidden md:block">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <a href={`tel:${settings.phone.replace(/\s+/g, '')}`} className="flex items-center gap-2 hover:text-[#F5B800] transition-colors">
-              <Phone className="w-3.5 h-3.5 text-[#F5B800]" />
-              <span>{settings.phone}</span>
-            </a>
-            <a href={`mailto:${settings.email}`} className="flex items-center gap-2 hover:text-[#F5B800] transition-colors">
-              <Mail className="w-3.5 h-3.5 text-[#F5B800]" />
-              <span>{settings.email}</span>
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-slate-400">Génie Civil • BTP • Construction en Tunisie</span>
-            <Link href="/admin/login" className="text-slate-400 hover:text-[#F5B800] transition-colors pl-2 border-l border-slate-700">
-              Espace Admin
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Navbar */}
       <header
-        className={`sticky top-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? 'bg-[#0E2E5C]/95 backdrop-blur-md shadow-xl py-3 border-b border-[#F5B800]/20'
-            : 'bg-[#0E2E5C] py-4'
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
+          solid ? 'border-b border-white/10 bg-[#050d1c]/80 py-3 backdrop-blur-xl' : 'bg-transparent py-5'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <TrabafLogo height={44} width={180} />
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" aria-label="TRABAF Construction — Accueil" className="rounded-xl bg-white px-3 py-1.5">
+            <TrabafLogo height={34} width={140} />
           </Link>
 
-          {/* Desktop Links */}
-          <nav className="hidden lg:flex items-center space-x-1 xl:space-x-2">
-            {navLinks.map((link) => {
-              const active = isActive(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    active
-                      ? 'text-[#F5B800] bg-[#18437E]/60 shadow-inner border-b-2 border-[#F5B800]'
-                      : 'text-white hover:text-[#F5B800] hover:bg-white/5'
-                  }`}
-                >
-                  {link.name}
-                </Link>
-              );
-            })}
+          <nav className="hidden items-center gap-1 lg:flex">
+            {NAV.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`relative px-4 py-2 text-sm font-semibold transition-colors ${
+                  isActive(l.href) ? 'text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                {l.name}
+                {isActive(l.href) && (
+                  <motion.span layoutId="nav-dot" className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#F5B800]" />
+                )}
+              </Link>
+            ))}
           </nav>
 
-          {/* Right Action CTA */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden items-center gap-3 lg:flex">
+            <a href={telLink(settings.phone)} className="text-sm font-semibold text-slate-300 hover:text-white">
+              {settings.phone}
+            </a>
             <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 bg-[#F5B800] hover:bg-[#D9A300] text-[#081B38] font-bold px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 text-sm"
+              href="/devis"
+              className="group inline-flex items-center gap-2 rounded-full bg-[#F5B800] px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-[#050d1c] transition-colors hover:bg-white"
             >
-              <FileText className="w-4 h-4" />
-              <span>Demander un devis</span>
+              Devis gratuit
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
 
-          {/* Mobile Hamburger Button */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-lg text-white hover:text-[#F5B800] hover:bg-white/10 transition-colors"
-            aria-label="Menu Mobile"
+            onClick={() => setOpen((o) => !o)}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-white lg:hidden"
+            aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}
+            aria-expanded={open}
           >
-            {mobileMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
+      </header>
 
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && (
-          <div className="lg:hidden bg-[#081B38] border-b border-[#F5B800]/20 px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-300">
-            <nav className="flex flex-col space-y-1">
-              {navLinks.map((link) => {
-                const active = isActive(link.href);
-                return (
+      {/* Menu mobile plein écran */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ clipPath: 'inset(0 0 100% 0)' }}
+            animate={{ clipPath: 'inset(0 0 0% 0)' }}
+            exit={{ clipPath: 'inset(0 0 100% 0)' }}
+            transition={{ duration: 0.55, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 z-40 flex flex-col justify-between bg-[#050d1c] px-6 pb-10 pt-28 text-white lg:hidden"
+          >
+            <nav className="flex flex-col">
+              {NAV.map((l, i) => (
+                <motion.div
+                  key={l.href}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 + i * 0.05, duration: 0.5 }}
+                >
                   <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center justify-between px-4 py-3 rounded-lg text-base font-medium ${
-                      active
-                        ? 'text-[#F5B800] bg-[#18437E] font-bold border-l-4 border-[#F5B800]'
-                        : 'text-slate-200 hover:text-[#F5B800] hover:bg-white/5'
+                    href={l.href}
+                    className={`font-display block border-b border-white/10 py-4 text-4xl font-extrabold uppercase tracking-tight ${
+                      isActive(l.href) ? 'text-[#F5B800]' : ''
                     }`}
                   >
-                    <span>{link.name}</span>
-                    <ChevronRight className="w-4 h-4 opacity-70" />
+                    {l.name}
                   </Link>
-                );
-              })}
+                </motion.div>
+              ))}
             </nav>
-
-            <div className="pt-4 border-t border-slate-800 space-y-3">
-              <a
-                href={`tel:${settings.phone.replace(/\s+/g, '')}`}
-                className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg bg-slate-800 text-white font-medium text-sm hover:bg-slate-700"
-              >
-                <Phone className="w-4 h-4 text-[#F5B800]" />
-                <span>Appeler {settings.phone}</span>
-              </a>
-
+            <div className="space-y-3">
               <Link
-                href="/contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-lg bg-[#F5B800] text-[#081B38] font-bold text-sm shadow-md"
+                href="/devis"
+                className="flex items-center justify-center gap-2 rounded-full bg-[#F5B800] py-4 text-sm font-extrabold uppercase tracking-wider text-[#050d1c]"
               >
-                <FileText className="w-4 h-4" />
-                <span>Demander un devis gratuit</span>
+                Devis gratuit
+                <ArrowRight className="h-4 w-4" />
               </Link>
+              <div className="grid grid-cols-2 gap-3">
+                <a href={telLink(settings.phone)} className="flex items-center justify-center gap-2 rounded-full border border-white/15 py-3.5 text-sm font-bold">
+                  <Phone className="h-4 w-4 text-[#F5B800]" />
+                  Appeler
+                </a>
+                <a
+                  href={whatsappLink(settings.whatsapp)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-full border border-white/15 py-3.5 text-sm font-bold"
+                >
+                  <MessageCircle className="h-4 w-4 text-[#25D366]" />
+                  WhatsApp
+                </a>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
-      </header>
+      </AnimatePresence>
+
+      {/* Espace sous la barre fixe pour les pages classiques */}
+      {!FULL_BLEED.includes(pathname) && <div className="h-[72px] bg-[#050d1c]" />}
     </>
   );
 }

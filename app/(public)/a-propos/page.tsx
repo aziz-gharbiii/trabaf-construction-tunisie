@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { DataService } from '@/lib/data-service';
+import { getSiteData } from '@/lib/build-data';
 import { Shield, Target, Compass, Award, CheckCircle2, ArrowRight } from 'lucide-react';
 import { getImagePath } from '@/lib/image-path';
 
@@ -10,8 +10,8 @@ export const metadata = {
   description: 'Découvrez l\'histoire, les valeurs, la mission et l\'engagement qualité de TRABAF Construction Tunisie.'
 };
 
-export default function AboutPage() {
-  const settings = DataService.getCompanySettings();
+export default async function AboutPage() {
+  const { settings } = await getSiteData();
 
   const values = [
     {

@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { DataService } from '@/lib/data-service';
 import { Project } from '@/types';
 import { MapPin, Calendar, ArrowRight, Search, Tag, Eye } from 'lucide-react';
 import { getImagePath } from '@/lib/image-path';
 
+import { projectHref, useProjects } from '@/lib/hooks';
 interface FeaturedProjectsProps {
   showFilters?: boolean;
   limit?: number;
@@ -17,7 +17,7 @@ export function FeaturedProjects({ showFilters = true, limit }: FeaturedProjects
   const [selectedCategory, setSelectedCategory] = useState<string>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const projects = DataService.getProjects(true);
+  const projects = useProjects(true);
 
   const categories: string[] = [
     'Tous',
@@ -175,7 +175,7 @@ export function FeaturedProjects({ showFilters = true, limit }: FeaturedProjects
                 {/* Footer Action */}
                 <div className="p-6 pt-0">
                   <Link
-                    href={`/projets/${project.slug}`}
+                    href={projectHref(project.slug)}
                     className="inline-flex items-center justify-center gap-2 w-full bg-[#18437E] hover:bg-[#F5B800] text-white hover:text-[#081B38] font-bold py-2.5 rounded-xl transition-all text-xs"
                   >
                     <Eye className="w-4 h-4" />

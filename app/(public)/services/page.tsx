@@ -2,15 +2,15 @@ import React from 'react';
 import { ServicesSection } from '@/components/public/ServicesSection';
 import Link from 'next/link';
 import { ShieldCheck, Phone, ArrowRight } from 'lucide-react';
-import { DataService } from '@/lib/data-service';
+import { getSiteData } from '@/lib/build-data';
 
 export const metadata = {
   title: 'Nos Services BTP & Génie Civil | TRABAF Construction Tunisie',
   description: 'Découvrez la gamme complète de services de TRABAF Construction Tunisie : bâtiments, génie civil, voiries, rénovations et ingénierie.'
 };
 
-export default function ServicesPage() {
-  const settings = DataService.getCompanySettings();
+export default async function ServicesPage() {
+  const { settings } = await getSiteData();
 
   return (
     <div className="bg-slate-900 min-h-screen text-white">

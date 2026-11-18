@@ -4,11 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, CheckCircle2, Shield, Target, Lightbulb, Clock } from 'lucide-react';
-import { DataService } from '@/lib/data-service';
 import { getImagePath } from '@/lib/image-path';
 
+import { useSettings } from '@/lib/hooks';
 export function AboutPreview() {
-  const settings = DataService.getCompanySettings();
+  const settings = useSettings();
 
   const values = [
     { title: 'Qualité Rigoureuse', desc: 'Conformité stricte aux normes de construction tunisiennes et internationales.', icon: Shield },
