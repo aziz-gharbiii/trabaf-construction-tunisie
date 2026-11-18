@@ -163,6 +163,24 @@ export const AdminAuth = {
     return !error && data === true;
   },
 
+  /** Lien d'invitation / de réinitialisation : la session est créée depuis l'URL, puis on fixe le mot de passe. */
+  async setPassword(password: string): Promise<string | null> {
+    const sb = getSupabase();
+    if (!sb) return "Supabase n'est pas configuré.";
+    const { data } = await sb.auth.getSession();
+    if (!data.session) return 'Lien expiré ou déjà utilisé. Demandez un nouveau lien.';
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) return error.message;
+    return null;
+  },
+
+  async sendReset(email: string): Promise<string | null> {
+    const sb = getSupabase();
+    if (!sb) return "Supabase n'est pas configuré.";
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/admin/login` });
+    return error ? error.message : null;
+  },
+
   async email(): Promise<string | null> {
     const sb = getSupabase();
     if (!sb) return null;
