@@ -9,7 +9,7 @@ import { useSettings, whatsappLink } from '@/lib/hooks';
 import { Magnetic, useReducedMotion } from '@/components/motion/Reveal';
 import { PlanRealControl } from '@/components/home/PlanRealControl';
 
-const HeroScene = dynamic(() => import('@/components/three/HeroScene'), {
+const HeroScene = dynamic(() => import('@/components/three/PhotoHero'), {
   ssr: false,
   loading: () => <div className="hero-fallback absolute inset-0" />
 });
