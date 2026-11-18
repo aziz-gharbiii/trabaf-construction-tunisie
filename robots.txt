@@ -2,4 +2,4 @@ User-Agent: *
 Allow: /
 Disallow: /admin/
 
-Sitemap: https://trabaf-construction.tn/sitemap.xml
+Sitemap: https://trabafconstruction.com/sitemap.xml
